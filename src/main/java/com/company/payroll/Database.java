@@ -17,10 +17,7 @@ public class Database {
             // Enforce foreign key constraints
             stmt.execute("PRAGMA foreign_keys = ON;");
 
-            // Drop and recreate drivers table to ensure schema is always correct (DEV ONLY! REMOVE in production)
-            stmt.execute("DROP TABLE IF EXISTS drivers;");
-
-            // DRIVERS
+            // Only CREATE TABLE IF NOT EXISTS (do not drop tables in production!)
             stmt.execute("""
                 CREATE TABLE IF NOT EXISTS drivers (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -43,7 +40,20 @@ public class Database {
                 );
             """);
 
-            // LOADS
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS payrolls (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    driver_id INTEGER,
+                    week_start DATE NOT NULL,
+                    week_end DATE NOT NULL,
+                    gross NUMERIC(10,2) NOT NULL,
+                    deductions NUMERIC(10,2) NOT NULL,
+                    net NUMERIC(10,2) NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(driver_id) REFERENCES drivers(id)
+                );
+            """);
+
             stmt.execute("""
                 CREATE TABLE IF NOT EXISTS loads (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -63,7 +73,6 @@ public class Database {
                 );
             """);
 
-            // FUEL TRANSACTIONS
             stmt.execute("""
                 CREATE TABLE IF NOT EXISTS fuel_transactions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -81,22 +90,6 @@ public class Database {
                 );
             """);
 
-            // PAYROLLS
-            stmt.execute("""
-                CREATE TABLE IF NOT EXISTS payrolls (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    driver_id INTEGER,
-                    week_start DATE NOT NULL,
-                    week_end DATE NOT NULL,
-                    gross NUMERIC(10,2) NOT NULL,
-                    deductions NUMERIC(10,2) NOT NULL,
-                    net NUMERIC(10,2) NOT NULL,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY(driver_id) REFERENCES drivers(id)
-                );
-            """);
-
-            // PAYROLL LINES
             stmt.execute("""
                 CREATE TABLE IF NOT EXISTS payroll_lines (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -111,7 +104,6 @@ public class Database {
                 );
             """);
 
-            // OTHER DEDUCTIONS
             stmt.execute("""
                 CREATE TABLE IF NOT EXISTS other_deductions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -127,7 +119,6 @@ public class Database {
                 );
             """);
 
-            // COMPANY INCOME
             stmt.execute("""
                 CREATE TABLE IF NOT EXISTS company_income (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -141,7 +132,6 @@ public class Database {
                 );
             """);
 
-            // AUDIT LOG
             stmt.execute("""
                 CREATE TABLE IF NOT EXISTS audit_log (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -156,7 +146,6 @@ public class Database {
                 );
             """);
 
-            // BUSINESS EXPENSES
             stmt.execute("""
                 CREATE TABLE IF NOT EXISTS business_expenses (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -167,7 +156,6 @@ public class Database {
                 );
             """);
 
-            // MAINTENANCE RECORDS
             stmt.execute("""
                 CREATE TABLE IF NOT EXISTS maintenance_records (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -180,7 +168,6 @@ public class Database {
                 );
             """);
 
-            // TRAILERS
             stmt.execute("""
                 CREATE TABLE IF NOT EXISTS trailers (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -198,7 +185,6 @@ public class Database {
                 );
             """);
 
-            // MONTHLY FEES
             stmt.execute("""
                 CREATE TABLE IF NOT EXISTS monthly_fees (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -213,7 +199,6 @@ public class Database {
                 );
             """);
 
-            // CASH ADVANCE
             stmt.execute("""
                 CREATE TABLE IF NOT EXISTS cash_advance (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
