@@ -4,9 +4,7 @@ import com.company.payroll.Database;
 import com.company.payroll.model.Payroll;
 
 import java.sql.*;
-import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -27,46 +25,27 @@ public class PayrollDao {
     }
 
     public void addPayroll(Payroll payroll) {
-        String sql = "INSERT INTO payrolls (driver_id, week_start, week_end, gross, deductions, net, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO payrolls (driver_id, from_date, to_date, gross, service_fee, gross_after_service_fee, fuel, gross_after_fuel, driver_share, company_share, other_deductions, net) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = Database.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+             PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             pstmt.setInt(1, payroll.getDriverId());
-            pstmt.setDate(2, Date.valueOf(payroll.getWeekStart()));
-            pstmt.setDate(3, Date.valueOf(payroll.getWeekEnd()));
-            pstmt.setBigDecimal(4, payroll.getGross());
-            pstmt.setBigDecimal(5, payroll.getDeductions());
-            pstmt.setBigDecimal(6, payroll.getNet());
-            pstmt.setTimestamp(7, payroll.getCreatedAt() == null ? new Timestamp(System.currentTimeMillis()) : Timestamp.valueOf(payroll.getCreatedAt()));
+            pstmt.setDate(2, Date.valueOf(payroll.getFromDate()));
+            pstmt.setDate(3, Date.valueOf(payroll.getToDate()));
+            pstmt.setDouble(4, payroll.getGross());
+            pstmt.setDouble(5, payroll.getServiceFee());
+            pstmt.setDouble(6, payroll.getGrossAfterServiceFee());
+            pstmt.setDouble(7, payroll.getFuel());
+            pstmt.setDouble(8, payroll.getGrossAfterFuel());
+            pstmt.setDouble(9, payroll.getDriverShare());
+            pstmt.setDouble(10, payroll.getCompanyShare());
+            pstmt.setDouble(11, payroll.getOtherDeductions());
+            pstmt.setDouble(12, payroll.getNet());
             pstmt.executeUpdate();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void updatePayroll(Payroll payroll) {
-        String sql = "UPDATE payrolls SET driver_id=?, week_start=?, week_end=?, gross=?, deductions=?, net=?, created_at=? WHERE id=?";
-        try (Connection conn = Database.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, payroll.getDriverId());
-            pstmt.setDate(2, Date.valueOf(payroll.getWeekStart()));
-            pstmt.setDate(3, Date.valueOf(payroll.getWeekEnd()));
-            pstmt.setBigDecimal(4, payroll.getGross());
-            pstmt.setBigDecimal(5, payroll.getDeductions());
-            pstmt.setBigDecimal(6, payroll.getNet());
-            pstmt.setTimestamp(7, payroll.getCreatedAt() == null ? new Timestamp(System.currentTimeMillis()) : Timestamp.valueOf(payroll.getCreatedAt()));
-            pstmt.setInt(8, payroll.getId());
-            pstmt.executeUpdate();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void deletePayroll(int id) {
-        String sql = "DELETE FROM payrolls WHERE id=?";
-        try (Connection conn = Database.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, id);
-            pstmt.executeUpdate();
+            try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
+                if (generatedKeys.next()) {
+                    payroll.setId(generatedKeys.getInt(1));
+                }
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -76,13 +55,19 @@ public class PayrollDao {
         Payroll p = new Payroll();
         p.setId(rs.getInt("id"));
         p.setDriverId(rs.getInt("driver_id"));
-        p.setWeekStart(rs.getDate("week_start").toLocalDate());
-        p.setWeekEnd(rs.getDate("week_end").toLocalDate());
-        p.setGross(rs.getBigDecimal("gross"));
-        p.setDeductions(rs.getBigDecimal("deductions"));
-        p.setNet(rs.getBigDecimal("net"));
-        Timestamp ts = rs.getTimestamp("created_at");
-        p.setCreatedAt(ts == null ? null : ts.toLocalDateTime());
+        p.setFromDate(rs.getDate("from_date").toLocalDate());
+        p.setToDate(rs.getDate("to_date").toLocalDate());
+        p.setGross(rs.getDouble("gross"));
+        p.setServiceFee(rs.getDouble("service_fee"));
+        p.setGrossAfterServiceFee(rs.getDouble("gross_after_service_fee"));
+        p.setFuel(rs.getDouble("fuel"));
+        p.setGrossAfterFuel(rs.getDouble("gross_after_fuel"));
+        p.setDriverShare(rs.getDouble("driver_share"));
+        p.setCompanyShare(rs.getDouble("company_share"));
+        p.setOtherDeductions(rs.getDouble("other_deductions"));
+        p.setNet(rs.getDouble("net"));
         return p;
     }
+
+    // Add update, delete, and getById methods as needed.
 }

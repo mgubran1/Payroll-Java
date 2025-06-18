@@ -2,16 +2,16 @@ package com.company.payroll.ui;
 
 import com.company.payroll.dao.DriverDao;
 import com.company.payroll.dao.LoadDao;
-import com.company.payroll.dao.FuelDao;
-import com.company.payroll.dao.FeeDao;
+import com.company.payroll.dao.FuelTransactionDao;
+import com.company.payroll.dao.MonthlyFeeDao;
 import com.company.payroll.dao.CashAdvanceDao;
-import com.company.payroll.dao.AdjustmentDao;
+import com.company.payroll.dao.OtherDeductionDao;
 import com.company.payroll.model.Driver;
 import com.company.payroll.model.Load;
-import com.company.payroll.model.Fuel;
-import com.company.payroll.model.Fee;
+import com.company.payroll.model.FuelTransaction;
+import com.company.payroll.model.MonthlyFee;
 import com.company.payroll.model.CashAdvance;
-import com.company.payroll.model.Adjustment;
+import com.company.payroll.model.OtherDeduction;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -21,7 +21,9 @@ import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -29,17 +31,17 @@ public class PayrollTab extends BorderPane {
 
     private final DriverDao driverDao = new DriverDao();
     private final LoadDao loadDao = new LoadDao();
-    private final FuelDao fuelDao = new FuelDao();
-    private final FeeDao feeDao = new FeeDao();
+    private final FuelTransactionDao fuelTransactionDao = new FuelTransactionDao();
+    private final MonthlyFeeDao monthlyFeeDao = new MonthlyFeeDao();
     private final CashAdvanceDao cashAdvanceDao = new CashAdvanceDao();
-    private final AdjustmentDao adjustmentDao = new AdjustmentDao();
+    private final OtherDeductionDao otherDeductionDao = new OtherDeductionDao();
 
     private final ObservableList<Driver> driverList = FXCollections.observableArrayList();
     private final ObservableList<Load> filteredLoads = FXCollections.observableArrayList();
-    private final ObservableList<Fuel> filteredFuels = FXCollections.observableArrayList();
-    private final ObservableList<Fee> filteredFees = FXCollections.observableArrayList();
+    private final ObservableList<FuelTransaction> filteredFuels = FXCollections.observableArrayList();
+    private final ObservableList<MonthlyFee> filteredFees = FXCollections.observableArrayList();
     private final ObservableList<CashAdvance> filteredAdvances = FXCollections.observableArrayList();
-    private final ObservableList<Adjustment> filteredAdjustments = FXCollections.observableArrayList();
+    private final ObservableList<OtherDeduction> filteredAdjustments = FXCollections.observableArrayList();
 
     private TextField paidFromField;
     private Spinner<Integer> yearSpinner;
@@ -51,10 +53,10 @@ public class PayrollTab extends BorderPane {
             grossAfterFuelLabel, driverShareLabel, companyShareLabel, deductionsLabel, netLabel;
 
     private TableView<Load> loadsTable;
-    private TableView<Fuel> fuelTable;
-    private TableView<Fee> feesTable;
+    private TableView<FuelTransaction> fuelTable;
+    private TableView<MonthlyFee> feesTable;
     private TableView<CashAdvance> advancesTable;
-    private TableView<Adjustment> adjustmentsTable;
+    private TableView<OtherDeduction> adjustmentsTable;
 
     public PayrollTab() {
         // Top: Paid From and Year
@@ -196,50 +198,45 @@ public class PayrollTab extends BorderPane {
         return table;
     }
 
-    private TableView<Fuel> createFuelTable() {
-        TableView<Fuel> table = new TableView<>(filteredFuels);
+    private TableView<FuelTransaction> createFuelTable() {
+        TableView<FuelTransaction> table = new TableView<>(filteredFuels);
 
-        TableColumn<Fuel, Number> idCol = new TableColumn<>("ID");
-        idCol.setCellValueFactory(cd -> new ReadOnlyObjectWrapper<>(cd.getValue().getId()));
+        TableColumn<FuelTransaction, String> dateCol = new TableColumn<>("Date");
+        dateCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getTranDate()));
 
-        TableColumn<Fuel, String> dateCol = new TableColumn<>("Date");
-        dateCol.setCellValueFactory(cd -> new SimpleStringProperty(
-                cd.getValue().getDate() != null ? cd.getValue().getDate().toString() : ""
-        ));
+        TableColumn<FuelTransaction, String> vendorCol = new TableColumn<>("Vendor");
+        vendorCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getLocationName()));
 
-        TableColumn<Fuel, String> vendorCol = new TableColumn<>("Vendor");
-        vendorCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getVendor()));
+        TableColumn<FuelTransaction, String> gallonsCol = new TableColumn<>("Gallons");
+        gallonsCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getQty()));
 
-        TableColumn<Fuel, Number> gallonsCol = new TableColumn<>("Gallons");
-        gallonsCol.setCellValueFactory(cd -> new ReadOnlyObjectWrapper<>(cd.getValue().getGallons()));
+        TableColumn<FuelTransaction, String> totalCostCol = new TableColumn<>("Total Cost");
+        totalCostCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getAmt()));
 
-        TableColumn<Fuel, Number> totalCostCol = new TableColumn<>("Total Cost");
-        totalCostCol.setCellValueFactory(cd -> new ReadOnlyObjectWrapper<>(cd.getValue().getTotalCost()));
-
-        table.getColumns().addAll(idCol, dateCol, vendorCol, gallonsCol, totalCostCol);
+        table.getColumns().addAll(dateCol, vendorCol, gallonsCol, totalCostCol);
         table.setPlaceholder(new Label("No fuel charges for this period."));
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         return table;
     }
 
-    private TableView<Fee> createFeesTable() {
-        TableView<Fee> table = new TableView<>(filteredFees);
+    private TableView<MonthlyFee> createFeesTable() {
+        TableView<MonthlyFee> table = new TableView<>(filteredFees);
 
-        TableColumn<Fee, Number> idCol = new TableColumn<>("ID");
+        TableColumn<MonthlyFee, Number> idCol = new TableColumn<>("ID");
         idCol.setCellValueFactory(cd -> new ReadOnlyObjectWrapper<>(cd.getValue().getId()));
 
-        TableColumn<Fee, String> typeCol = new TableColumn<>("Type");
-        typeCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getType()));
+        TableColumn<MonthlyFee, String> typeCol = new TableColumn<>("Type");
+        typeCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getFeeType()));
 
-        TableColumn<Fee, String> dateCol = new TableColumn<>("Date");
-        dateCol.setCellValueFactory(cd -> new SimpleStringProperty(
-            cd.getValue().getDate() != null ? cd.getValue().getDate().toString() : ""
+        TableColumn<MonthlyFee, String> dueDateCol = new TableColumn<>("Due Date");
+        dueDateCol.setCellValueFactory(cd -> new SimpleStringProperty(
+            cd.getValue().getDueDate() != null ? cd.getValue().getDueDate().toString() : ""
         ));
 
-        TableColumn<Fee, Number> amountCol = new TableColumn<>("Amount");
-        amountCol.setCellValueFactory(cd -> new ReadOnlyObjectWrapper<>(cd.getValue().getAmount()));
+        TableColumn<MonthlyFee, String> amountCol = new TableColumn<>("Amount");
+        amountCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getAmount() != null ? cd.getValue().getAmount().toString() : "0.00"));
 
-        table.getColumns().addAll(idCol, typeCol, dateCol, amountCol);
+        table.getColumns().addAll(idCol, typeCol, dueDateCol, amountCol);
         table.setPlaceholder(new Label("No monthly fees for this period."));
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         return table;
@@ -251,39 +248,39 @@ public class PayrollTab extends BorderPane {
         TableColumn<CashAdvance, Number> idCol = new TableColumn<>("ID");
         idCol.setCellValueFactory(cd -> new ReadOnlyObjectWrapper<>(cd.getValue().getId()));
 
-        TableColumn<CashAdvance, String> dateCol = new TableColumn<>("Date");
-        dateCol.setCellValueFactory(cd -> new SimpleStringProperty(
-            cd.getValue().getDate() != null ? cd.getValue().getDate().toString() : ""
+        TableColumn<CashAdvance, String> issuedDateCol = new TableColumn<>("Issued Date");
+        issuedDateCol.setCellValueFactory(cd -> new SimpleStringProperty(
+            cd.getValue().getIssuedDate() != null ? cd.getValue().getIssuedDate().toString() : ""
         ));
 
         TableColumn<CashAdvance, String> noteCol = new TableColumn<>("Note");
-        noteCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getNote()));
+        noteCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getNotes()));
 
-        TableColumn<CashAdvance, Number> amountCol = new TableColumn<>("Amount");
-        amountCol.setCellValueFactory(cd -> new ReadOnlyObjectWrapper<>(cd.getValue().getAmount()));
+        TableColumn<CashAdvance, String> amountCol = new TableColumn<>("Amount");
+        amountCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getAmount() != null ? cd.getValue().getAmount().toString() : "0.00"));
 
-        table.getColumns().addAll(idCol, dateCol, noteCol, amountCol);
+        table.getColumns().addAll(idCol, issuedDateCol, noteCol, amountCol);
         table.setPlaceholder(new Label("No cash advances for this period."));
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         return table;
     }
 
-    private TableView<Adjustment> createAdjustmentsTable() {
-        TableView<Adjustment> table = new TableView<>(filteredAdjustments);
+    private TableView<OtherDeduction> createAdjustmentsTable() {
+        TableView<OtherDeduction> table = new TableView<>(filteredAdjustments);
 
-        TableColumn<Adjustment, Number> idCol = new TableColumn<>("ID");
+        TableColumn<OtherDeduction, Number> idCol = new TableColumn<>("ID");
         idCol.setCellValueFactory(cd -> new ReadOnlyObjectWrapper<>(cd.getValue().getId()));
 
-        TableColumn<Adjustment, String> dateCol = new TableColumn<>("Date");
+        TableColumn<OtherDeduction, String> dateCol = new TableColumn<>("Date");
         dateCol.setCellValueFactory(cd -> new SimpleStringProperty(
             cd.getValue().getDate() != null ? cd.getValue().getDate().toString() : ""
         ));
 
-        TableColumn<Adjustment, String> reasonCol = new TableColumn<>("Reason");
+        TableColumn<OtherDeduction, String> reasonCol = new TableColumn<>("Reason");
         reasonCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getReason()));
 
-        TableColumn<Adjustment, Number> amountCol = new TableColumn<>("Amount");
-        amountCol.setCellValueFactory(cd -> new ReadOnlyObjectWrapper<>(cd.getValue().getAmount()));
+        TableColumn<OtherDeduction, String> amountCol = new TableColumn<>("Amount");
+        amountCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getAmount() != null ? cd.getValue().getAmount().toString() : "0.00"));
 
         table.getColumns().addAll(idCol, dateCol, reasonCol, amountCol);
         table.setPlaceholder(new Label("No adjustments for this period."));
@@ -321,37 +318,37 @@ public class PayrollTab extends BorderPane {
                 .collect(Collectors.toList());
         filteredLoads.setAll(driverLoads);
 
-        // Filter fuel records for driver and date range (adjust as per your Fuel model)
-        List<Fuel> allFuels = fuelDao.getAllFuel();
-        List<Fuel> driverFuels = allFuels.stream()
-                .filter(f -> f.getDriverId() == driver.getId()
-                        && f.getDate() != null
-                        && !f.getDate().isBefore(from)
-                        && !f.getDate().isAfter(to))
+        // Use robust alias method for FuelTransactionDao
+        List<FuelTransaction> allFuels = fuelTransactionDao.getAllFuelTransactions();
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        List<FuelTransaction> driverFuels = allFuels.stream()
+                .filter(f -> f.getDriverName() != null && f.getDriverName().equals(driver.getName())
+                        && f.getTranDate() != null
+                        && isDateInRange(f.getTranDate(), from, to, dateFormatter))
                 .collect(Collectors.toList());
         filteredFuels.setAll(driverFuels);
 
         // Filter fees, advances, adjustments
-        List<Fee> allFees = feeDao.getAllFees();
-        List<Fee> driverFees = allFees.stream()
+        List<MonthlyFee> allFees = monthlyFeeDao.getAllMonthlyFees();
+        List<MonthlyFee> driverFees = allFees.stream()
                 .filter(f -> f.getDriverId() == driver.getId()
-                        && f.getDate() != null
-                        && !f.getDate().isBefore(from)
-                        && !f.getDate().isAfter(to))
+                        && f.getDueDate() != null
+                        && !f.getDueDate().isBefore(from)
+                        && !f.getDueDate().isAfter(to))
                 .collect(Collectors.toList());
         filteredFees.setAll(driverFees);
 
-        List<CashAdvance> allAdvances = cashAdvanceDao.getAllAdvances();
+        List<CashAdvance> allAdvances = cashAdvanceDao.getAllCashAdvances();
         List<CashAdvance> driverAdvances = allAdvances.stream()
                 .filter(a -> a.getDriverId() == driver.getId()
-                        && a.getDate() != null
-                        && !a.getDate().isBefore(from)
-                        && !a.getDate().isAfter(to))
+                        && a.getIssuedDate() != null
+                        && !a.getIssuedDate().isBefore(from)
+                        && !a.getIssuedDate().isAfter(to))
                 .collect(Collectors.toList());
         filteredAdvances.setAll(driverAdvances);
 
-        List<Adjustment> allAdjustments = adjustmentDao.getAllAdjustments();
-        List<Adjustment> driverAdjustments = allAdjustments.stream()
+        List<OtherDeduction> allAdjustments = otherDeductionDao.getAllOtherDeductions();
+        List<OtherDeduction> driverAdjustments = allAdjustments.stream()
                 .filter(a -> a.getDriverId() == driver.getId()
                         && a.getDate() != null
                         && !a.getDate().isBefore(from)
@@ -365,15 +362,15 @@ public class PayrollTab extends BorderPane {
                 .mapToDouble(l -> l.getGrossAmount() * (driver.getCompanyServiceFeePercent() / 100.0))
                 .sum();
         double grossAfterServiceFee = gross - serviceFee;
-        double fuel = driverFuels.stream().mapToDouble(Fuel::getTotalCost).sum();
+        double fuel = driverFuels.stream().mapToDouble(f -> parseDoubleSafe(f.getAmt())).sum();
         double grossAfterFuel = grossAfterServiceFee - fuel;
         double driverShare = driverLoads.stream()
                 .mapToDouble(l -> l.getGrossAmount() * (l.getDriverPercent() / 100.0))
                 .sum();
         double companyShare = grossAfterFuel - driverShare;
-        double feeDeductions = driverFees.stream().mapToDouble(Fee::getAmount).sum();
-        double advancesDeductions = driverAdvances.stream().mapToDouble(CashAdvance::getAmount).sum();
-        double adjustmentDeductions = driverAdjustments.stream().mapToDouble(Adjustment::getAmount).sum();
+        double feeDeductions = driverFees.stream().mapToDouble(f -> f.getAmount() != null ? f.getAmount().doubleValue() : 0.0).sum();
+        double advancesDeductions = driverAdvances.stream().mapToDouble(a -> a.getAmount() != null ? a.getAmount().doubleValue() : 0.0).sum();
+        double adjustmentDeductions = driverAdjustments.stream().mapToDouble(a -> a.getAmount() != null ? a.getAmount().doubleValue() : 0.0).sum();
         double otherDeductions = feeDeductions + advancesDeductions + adjustmentDeductions;
         double net = driverShare - otherDeductions;
 
@@ -387,6 +384,23 @@ public class PayrollTab extends BorderPane {
         companyShareLabel.setText(String.format("$%,.2f", companyShare));
         deductionsLabel.setText(String.format("$%,.2f", otherDeductions));
         netLabel.setText(String.format("$%,.2f", net));
+    }
+
+    private boolean isDateInRange(String dateStr, LocalDate from, LocalDate to, DateTimeFormatter formatter) {
+        try {
+            LocalDate d = LocalDate.parse(dateStr, formatter);
+            return (d != null && !d.isBefore(from) && !d.isAfter(to));
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private double parseDoubleSafe(String val) {
+        try {
+            return Double.parseDouble(val);
+        } catch (Exception e) {
+            return 0.0;
+        }
     }
 
     private void clearSummary() {

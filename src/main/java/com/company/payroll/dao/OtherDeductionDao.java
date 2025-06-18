@@ -23,10 +23,42 @@ public class OtherDeductionDao {
         return deductions;
     }
 
+    public List<OtherDeduction> getOtherDeductionsByDriver(int driverId) {
+        List<OtherDeduction> deductions = new ArrayList<>();
+        String sql = "SELECT * FROM other_deductions WHERE driver_id = ?";
+        try (Connection conn = Database.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, driverId);
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                deductions.add(toOtherDeduction(rs));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return deductions;
+    }
+
+    public List<OtherDeduction> getOtherDeductionsByPayroll(int payrollId) {
+        List<OtherDeduction> deductions = new ArrayList<>();
+        String sql = "SELECT * FROM other_deductions WHERE payroll_id = ?";
+        try (Connection conn = Database.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, payrollId);
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                deductions.add(toOtherDeduction(rs));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return deductions;
+    }
+
     public void addOtherDeduction(OtherDeduction d) {
         String sql = "INSERT INTO other_deductions (payroll_id, driver_id, date, amount, reason, reimbursed, disc_amt) VALUES (?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = Database.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+             PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             pstmt.setInt(1, d.getPayrollId());
             pstmt.setInt(2, d.getDriverId());
             pstmt.setDate(3, Date.valueOf(d.getDate()));
@@ -35,6 +67,11 @@ public class OtherDeductionDao {
             pstmt.setInt(6, d.getReimbursed());
             pstmt.setBigDecimal(7, d.getDiscAmt());
             pstmt.executeUpdate();
+            try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
+                if (generatedKeys.next()) {
+                    d.setId(generatedKeys.getInt(1));
+                }
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }

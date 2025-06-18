@@ -18,6 +18,9 @@ public class FuelTransactionDao {
     public FuelTransactionDao() {
         createTableIfNotExists();
     }
+	public List<FuelTransaction> getAllTransactions() {
+		return getAllFuel();
+	}
 
     private void createTableIfNotExists() {
         String sql = "CREATE TABLE IF NOT EXISTS fuel_transactions (" +
@@ -104,7 +107,7 @@ public class FuelTransactionDao {
         }
     }
 
-    public List<FuelTransaction> getAllTransactions() {
+    public List<FuelTransaction> getAllFuel() {
         List<FuelTransaction> list = new ArrayList<>();
         String sql = "SELECT * FROM fuel_transactions";
         try (Connection conn = DriverManager.getConnection(url);
@@ -117,6 +120,11 @@ public class FuelTransactionDao {
             logger.error("Get all transactions error", ex);
         }
         return list;
+    }
+
+    // Robust alias method for compatibility with various UIs
+    public List<FuelTransaction> getAllFuelTransactions() {
+        return getAllFuel();
     }
 
     // For integration: Get by date
@@ -154,7 +162,7 @@ public class FuelTransactionDao {
     }
 
     public void exportToCSV(File file) throws IOException {
-        List<FuelTransaction> all = getAllTransactions();
+        List<FuelTransaction> all = getAllFuel();
         try (PrintWriter pw = new PrintWriter(file)) {
             // Write CSV header
             pw.println("Card #,Tran Date,Tran Time,Invoice,Unit,Driver Name,Odometer,Location Name,City,State/Prov,Fees,Item,Unit Price,Disc PPU,Disc Cost,Qty,Disc Amt,Disc Type,Amt,DB,Currency");

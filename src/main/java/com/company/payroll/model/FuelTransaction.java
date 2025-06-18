@@ -1,6 +1,7 @@
 package com.company.payroll.model;
 
 public class FuelTransaction {
+    private int id;
     private String cardNumber;
     private String tranDate;
     private String tranTime;
@@ -22,6 +23,12 @@ public class FuelTransaction {
     private String amt;
     private String db;
     private String currency;
+
+    // Add a driverId for linking if possible
+    private Integer driverId;
+
+    public int getId() { return id; }
+    public void setId(int id) { this.id = id; }
 
     public String getCardNumber() { return cardNumber; }
     public void setCardNumber(String cardNumber) { this.cardNumber = cardNumber; }
@@ -85,4 +92,7 @@ public class FuelTransaction {
 
     public String getCurrency() { return currency; }
     public void setCurrency(String currency) { this.currency = currency; }
+
+    public Integer getDriverId() { return driverId; }
+    public void setDriverId(Integer driverId) { this.driverId = driverId; }
 }

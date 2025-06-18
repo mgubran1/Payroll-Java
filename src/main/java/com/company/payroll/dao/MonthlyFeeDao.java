@@ -4,11 +4,8 @@ import com.company.payroll.Database;
 import com.company.payroll.model.MonthlyFee;
 
 import java.sql.*;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.math.BigDecimal;
 
 public class MonthlyFeeDao {
     public List<MonthlyFee> getAllMonthlyFees() {
@@ -26,10 +23,26 @@ public class MonthlyFeeDao {
         return fees;
     }
 
+    public List<MonthlyFee> getMonthlyFeesByDriver(int driverId) {
+        List<MonthlyFee> fees = new ArrayList<>();
+        String sql = "SELECT * FROM monthly_fees WHERE driver_id = ?";
+        try (Connection conn = Database.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, driverId);
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                fees.add(toMonthlyFee(rs));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return fees;
+    }
+
     public void addMonthlyFee(MonthlyFee mf) {
         String sql = "INSERT INTO monthly_fees (driver_id, fee_type, amount, due_date, weekly_fee, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = Database.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+             PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             pstmt.setInt(1, mf.getDriverId());
             pstmt.setString(2, mf.getFeeType());
             pstmt.setBigDecimal(3, mf.getAmount());
@@ -38,6 +51,11 @@ public class MonthlyFeeDao {
             pstmt.setString(6, mf.getNotes());
             pstmt.setTimestamp(7, mf.getCreatedAt() == null ? new Timestamp(System.currentTimeMillis()) : Timestamp.valueOf(mf.getCreatedAt()));
             pstmt.executeUpdate();
+            try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
+                if (generatedKeys.next()) {
+                    mf.setId(generatedKeys.getInt(1));
+                }
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }

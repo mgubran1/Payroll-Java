@@ -3,12 +3,12 @@ package com.company.payroll.dao;
 import com.company.payroll.Database;
 import com.company.payroll.model.CashAdvance;
 
+import java.math.BigDecimal;
 import java.sql.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.math.BigDecimal;
 
 public class CashAdvanceDao {
     public List<CashAdvance> getAllCashAdvances() {
@@ -26,10 +26,42 @@ public class CashAdvanceDao {
         return advances;
     }
 
+    public List<CashAdvance> getCashAdvancesByDriver(int driverId) {
+        List<CashAdvance> advances = new ArrayList<>();
+        String sql = "SELECT * FROM cash_advance WHERE driver_id = ?";
+        try (Connection conn = Database.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, driverId);
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                advances.add(toCashAdvance(rs));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return advances;
+    }
+
+    public List<CashAdvance> getCashAdvancesByPayroll(int payrollId) {
+        List<CashAdvance> advances = new ArrayList<>();
+        String sql = "SELECT * FROM cash_advance WHERE assigned_payroll_id = ?";
+        try (Connection conn = Database.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, payrollId);
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                advances.add(toCashAdvance(rs));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return advances;
+    }
+
     public void addCashAdvance(CashAdvance ca) {
         String sql = "INSERT INTO cash_advance (driver_id, amount, issued_date, weekly_repayment, notes, status, assigned_payroll_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = Database.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+             PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             pstmt.setInt(1, ca.getDriverId());
             pstmt.setBigDecimal(2, ca.getAmount());
             pstmt.setDate(3, Date.valueOf(ca.getIssuedDate()));
@@ -43,6 +75,11 @@ public class CashAdvanceDao {
             }
             pstmt.setTimestamp(8, ca.getCreatedAt() == null ? new Timestamp(System.currentTimeMillis()) : Timestamp.valueOf(ca.getCreatedAt()));
             pstmt.executeUpdate();
+            try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
+                if (generatedKeys.next()) {
+                    ca.setId(generatedKeys.getInt(1));
+                }
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }

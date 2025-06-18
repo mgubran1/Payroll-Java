@@ -1,7 +1,9 @@
 C:\Users\Rayan\Desktop\Payroll\src\main\java\com\company\payroll\dao\BusinessExpenseDao.java
 C:\Users\Rayan\Desktop\Payroll\src\main\java\com\company\payroll\model\FuelTransaction.java
 C:\Users\Rayan\Desktop\Payroll\src\main\java\com\company\payroll\ui\LoadsTab.java
+C:\Users\Rayan\Desktop\Payroll\src\main\java\com\company\payroll\model\AdjustmentType.java
 C:\Users\Rayan\Desktop\Payroll\src\main\java\com\company\payroll\ui\DriverIncomeTab.java
+C:\Users\Rayan\Desktop\Payroll\src\main\java\com\company\payroll\ui\MonthlyFeeDialog.java
 C:\Users\Rayan\Desktop\Payroll\src\main\java\com\company\payroll\model\Payroll.java
 C:\Users\Rayan\Desktop\Payroll\src\main\java\com\company\payroll\model\CashAdvance.java
 C:\Users\Rayan\Desktop\Payroll\src\main\java\com\company\payroll\ui\PayrollTab.java
@@ -15,11 +17,13 @@ C:\Users\Rayan\Desktop\Payroll\src\main\java\com\company\payroll\model\OtherDedu
 C:\Users\Rayan\Desktop\Payroll\src\main\java\com\company\payroll\dao\MaintenanceRecordDao.java
 C:\Users\Rayan\Desktop\Payroll\src\main\java\com\company\payroll\ui\AuditTab.java
 C:\Users\Rayan\Desktop\Payroll\src\main\java\com\company\payroll\model\CompanyIncome.java
+C:\Users\Rayan\Desktop\Payroll\src\main\java\com\company\payroll\ui\OtherAdjustmentDialog.java
 C:\Users\Rayan\Desktop\Payroll\src\main\java\com\company\payroll\ui\DataRefreshListener.java
 C:\Users\Rayan\Desktop\Payroll\src\main\java\com\company\payroll\dao\PayrollDao.java
 C:\Users\Rayan\Desktop\Payroll\src\main\java\com\company\payroll\dao\CompanyIncomeDao.java
 C:\Users\Rayan\Desktop\Payroll\src\main\java\com\company\payroll\dao\TrailerDao.java
 C:\Users\Rayan\Desktop\Payroll\src\main\java\com\company\payroll\ui\CompanyIncomeTab.java
+C:\Users\Rayan\Desktop\Payroll\src\main\java\com\company\payroll\model\FeeType.java
 C:\Users\Rayan\Desktop\Payroll\src\main\java\com\company\payroll\Database.java
 C:\Users\Rayan\Desktop\Payroll\src\main\java\com\company\payroll\ui\MissingActionsTab.java
 C:\Users\Rayan\Desktop\Payroll\src\main\java\com\company\payroll\dao\EmployeeDao.java
@@ -35,6 +39,7 @@ C:\Users\Rayan\Desktop\Payroll\src\main\java\com\company\payroll\model\AuditLog.
 C:\Users\Rayan\Desktop\Payroll\src\main\java\com\company\payroll\model\Employee.java
 C:\Users\Rayan\Desktop\Payroll\src\main\java\com\company\payroll\model\PayrollLine.java
 C:\Users\Rayan\Desktop\Payroll\src\main\java\com\company\payroll\dao\OtherDeductionDao.java
+C:\Users\Rayan\Desktop\Payroll\src\main\java\com\company\payroll\ui\CashAdvanceDialog.java
 C:\Users\Rayan\Desktop\Payroll\src\main\java\com\company\payroll\ui\FuelImportTab.java
 C:\Users\Rayan\Desktop\Payroll\src\main\java\com\company\payroll\dao\FuelTransactionDao.java
 C:\Users\Rayan\Desktop\Payroll\src\main\java\com\company\payroll\model\MaintenanceRecord.java
