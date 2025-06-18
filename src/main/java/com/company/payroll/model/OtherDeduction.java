@@ -1,23 +1,29 @@
 package com.company.payroll.model;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Objects;
 
 public class OtherDeduction {
     private int id;
-    private int payrollId;
     private int driverId;
     private LocalDate date;
-    private BigDecimal amount;
-    private String reason;
-    private int reimbursed;
-    private BigDecimal discAmt;
+    private String type;
+    private double amount;
+    private String notes;
+
+    public OtherDeduction() {}
+
+    public OtherDeduction(int id, int driverId, LocalDate date, String type, double amount, String notes) {
+        this.id = id;
+        this.driverId = driverId;
+        this.date = date;
+        this.type = type;
+        this.amount = amount;
+        this.notes = notes;
+    }
 
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
-
-    public int getPayrollId() { return payrollId; }
-    public void setPayrollId(int payrollId) { this.payrollId = payrollId; }
 
     public int getDriverId() { return driverId; }
     public void setDriverId(int driverId) { this.driverId = driverId; }
@@ -25,15 +31,37 @@ public class OtherDeduction {
     public LocalDate getDate() { return date; }
     public void setDate(LocalDate date) { this.date = date; }
 
-    public BigDecimal getAmount() { return amount; }
-    public void setAmount(BigDecimal amount) { this.amount = amount; }
+    public String getType() { return type; }
+    public void setType(String type) { this.type = type; }
 
-    public String getReason() { return reason; }
-    public void setReason(String reason) { this.reason = reason; }
+    public double getAmount() { return amount; }
+    public void setAmount(double amount) { this.amount = amount; }
 
-    public int getReimbursed() { return reimbursed; }
-    public void setReimbursed(int reimbursed) { this.reimbursed = reimbursed; }
+    public String getNotes() { return notes; }
+    public void setNotes(String notes) { this.notes = notes; }
 
-    public BigDecimal getDiscAmt() { return discAmt; }
-    public void setDiscAmt(BigDecimal discAmt) { this.discAmt = discAmt; }
+    @Override
+    public String toString() {
+        return "OtherDeduction{" +
+                "id=" + id +
+                ", driverId=" + driverId +
+                ", date=" + date +
+                ", type='" + type + '\'' +
+                ", amount=" + amount +
+                ", notes='" + notes + '\'' +
+                '}';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof OtherDeduction)) return false;
+        OtherDeduction that = (OtherDeduction) o;
+        return id == that.id;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
+    }
 }

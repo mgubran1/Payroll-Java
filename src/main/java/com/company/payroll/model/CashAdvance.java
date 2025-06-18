@@ -1,19 +1,24 @@
 package com.company.payroll.model;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.util.Objects;
 
 public class CashAdvance {
     private int id;
     private int driverId;
-    private BigDecimal amount;
-    private LocalDate issuedDate;
-    private BigDecimal weeklyRepayment;
+    private LocalDate advanceDate;
+    private double amount;
     private String notes;
-    private String status;
-    private Integer assignedPayrollId;
-    private LocalDateTime createdAt;
+
+    public CashAdvance() {}
+
+    public CashAdvance(int id, int driverId, LocalDate advanceDate, double amount, String notes) {
+        this.id = id;
+        this.driverId = driverId;
+        this.advanceDate = advanceDate;
+        this.amount = amount;
+        this.notes = notes;
+    }
 
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
@@ -21,24 +26,36 @@ public class CashAdvance {
     public int getDriverId() { return driverId; }
     public void setDriverId(int driverId) { this.driverId = driverId; }
 
-    public BigDecimal getAmount() { return amount; }
-    public void setAmount(BigDecimal amount) { this.amount = amount; }
+    public LocalDate getAdvanceDate() { return advanceDate; }
+    public void setAdvanceDate(LocalDate advanceDate) { this.advanceDate = advanceDate; }
 
-    public LocalDate getIssuedDate() { return issuedDate; }
-    public void setIssuedDate(LocalDate issuedDate) { this.issuedDate = issuedDate; }
-
-    public BigDecimal getWeeklyRepayment() { return weeklyRepayment; }
-    public void setWeeklyRepayment(BigDecimal weeklyRepayment) { this.weeklyRepayment = weeklyRepayment; }
+    public double getAmount() { return amount; }
+    public void setAmount(double amount) { this.amount = amount; }
 
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
 
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    @Override
+    public String toString() {
+        return "CashAdvance{" +
+                "id=" + id +
+                ", driverId=" + driverId +
+                ", advanceDate=" + advanceDate +
+                ", amount=" + amount +
+                ", notes='" + notes + '\'' +
+                '}';
+    }
 
-    public Integer getAssignedPayrollId() { return assignedPayrollId; }
-    public void setAssignedPayrollId(Integer assignedPayrollId) { this.assignedPayrollId = assignedPayrollId; }
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof CashAdvance)) return false;
+        CashAdvance that = (CashAdvance) o;
+        return id == that.id;
+    }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
+    }
 }

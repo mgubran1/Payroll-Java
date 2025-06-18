@@ -14,12 +14,10 @@ public class Load {
     private double grossAmount;
     private double driverPercent;
     private String description;
-    private boolean paid; // true if paid, false if unpaid
+    private boolean paid;
 
-    // No-argument constructor
     public Load() {}
 
-    // All-argument constructor
     public Load(int id, String loadNumber, String customer, String pickupLocation, String dropLocation,
                 int driverId, LocalDate deliveredDate, double grossAmount, double driverPercent,
                 String description, boolean paid) {
@@ -36,7 +34,6 @@ public class Load {
         this.paid = paid;
     }
 
-    // Getters and Setters
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
 
@@ -70,7 +67,6 @@ public class Load {
     public boolean isPaid() { return paid; }
     public void setPaid(boolean paid) { this.paid = paid; }
 
-    // toString for easy debugging/logging
     @Override
     public String toString() {
         return "Load{" +
@@ -88,7 +84,6 @@ public class Load {
                 '}';
     }
 
-    // equals and hashCode (optional, but good for use in sets or lists)
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
