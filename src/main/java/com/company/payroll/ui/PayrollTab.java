@@ -9,21 +9,17 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.stage.Stage;
 import javafx.util.StringConverter;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.temporal.WeekFields;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * PayrollTab: Main tab for payroll management, including sub-tabs for Loads, Fuel, Monthly Fees,
- * Cash Advances, and Other Adjustments. Includes Add/Edit/Delete logic, customizable date selection,
- * and robust driver dropdown logic.
- */
 public class PayrollTab extends BorderPane {
 
-    // Data sources
     private final ObservableList<Driver> driverList = FXCollections.observableArrayList();
     private final ObservableList<Load> loadList = FXCollections.observableArrayList();
     private final ObservableList<FuelTransaction> fuelList = FXCollections.observableArrayList();
@@ -31,13 +27,11 @@ public class PayrollTab extends BorderPane {
     private final ObservableList<CashAdvance> cashAdvanceList = FXCollections.observableArrayList();
     private final ObservableList<OtherDeduction> otherDeductionList = FXCollections.observableArrayList();
 
-    // UI Controls
     private ComboBox<Driver> cmbDriver;
     private DatePicker dpStart;
     private DatePicker dpEnd;
     private Button btnDateRangeApply;
 
-    // Sub-tabs
     private TabPane subTabs;
     private TableView<Load> tblLoads;
     private TableView<FuelTransaction> tblFuel;
@@ -45,17 +39,17 @@ public class PayrollTab extends BorderPane {
     private TableView<CashAdvance> tblCashAdvances;
     private TableView<OtherDeduction> tblOtherAdjustments;
 
-    // Storage for currently selected filters
     private LocalDate filterStart;
     private LocalDate filterEnd;
     private Driver filterDriver;
+
+    private Map<Integer, Driver> driverIdMap = new HashMap<>();
 
     public PayrollTab() {
         setPadding(new Insets(10));
         initTopSection();
         initSubTabs();
         refreshDriverList();
-        // Initial filters
         filterStart = LocalDate.now().with(WeekFields.of(Locale.getDefault()).dayOfWeek(), 1);
         filterEnd = filterStart.plusDays(6);
         updateFilterAndTables();
@@ -97,31 +91,26 @@ public class PayrollTab extends BorderPane {
     private void initSubTabs() {
         subTabs = new TabPane();
 
-        // Loads Tab
         tblLoads = new TableView<>(loadList);
         setupLoadTable(tblLoads);
         VBox loadBox = new VBox(10, createCRUDButtons(tblLoads, "Load"), tblLoads);
         Tab tabLoads = new Tab("Loads", loadBox);
 
-        // Fuel Tab
         tblFuel = new TableView<>(fuelList);
         setupFuelTable(tblFuel);
         VBox fuelBox = new VBox(10, createCRUDButtons(tblFuel, "Fuel"), tblFuel);
         Tab tabFuel = new Tab("Fuel", fuelBox);
 
-        // Monthly Fees Tab
         tblMonthlyFees = new TableView<>(monthlyFeeList);
         setupMonthlyFeeTable(tblMonthlyFees);
         VBox feeBox = new VBox(10, createCRUDButtons(tblMonthlyFees, "MonthlyFee"), tblMonthlyFees);
         Tab tabMonthlyFees = new Tab("Monthly Fees", feeBox);
 
-        // Cash Advances Tab
         tblCashAdvances = new TableView<>(cashAdvanceList);
         setupCashAdvanceTable(tblCashAdvances);
         VBox advBox = new VBox(10, createCRUDButtons(tblCashAdvances, "CashAdvance"), tblCashAdvances);
         Tab tabCashAdvances = new Tab("Cash Advances", advBox);
 
-        // Other Adjustments Tab
         tblOtherAdjustments = new TableView<>(otherDeductionList);
         setupOtherDeductionTable(tblOtherAdjustments);
         VBox adjBox = new VBox(10, createCRUDButtons(tblOtherAdjustments, "OtherDeduction"), tblOtherAdjustments);
@@ -146,7 +135,7 @@ public class PayrollTab extends BorderPane {
     private void handleAdd(String type) {
         switch (type) {
             case "Load" -> {
-                LoadDialog dialog = new LoadDialog(getScene().getWindow(), null, driverList);
+                LoadDialog dialog = new LoadDialog((Stage) getScene().getWindow(), null);
                 dialog.showAndWait();
                 if (dialog.isSaved()) {
                     loadList.add(dialog.getLoad());
@@ -154,7 +143,7 @@ public class PayrollTab extends BorderPane {
                 }
             }
             case "Fuel" -> {
-                FuelTransactionDialog dialog = new FuelTransactionDialog(getScene().getWindow(), null, driverList);
+                FuelTransactionDialog dialog = new FuelTransactionDialog((Stage) getScene().getWindow(), null);
                 dialog.showAndWait();
                 if (dialog.isSaved()) {
                     fuelList.add(dialog.getFuelTransaction());
@@ -162,7 +151,7 @@ public class PayrollTab extends BorderPane {
                 }
             }
             case "MonthlyFee" -> {
-                MonthlyFeeDialog dialog = new MonthlyFeeDialog(getScene().getWindow(), null, driverList);
+                MonthlyFeeDialog dialog = new MonthlyFeeDialog((Stage) getScene().getWindow(), null);
                 dialog.showAndWait();
                 if (dialog.isSaved()) {
                     monthlyFeeList.add(dialog.getMonthlyFee());
@@ -170,7 +159,7 @@ public class PayrollTab extends BorderPane {
                 }
             }
             case "CashAdvance" -> {
-                CashAdvanceDialog dialog = new CashAdvanceDialog(getScene().getWindow(), null, driverList);
+                CashAdvanceDialog dialog = new CashAdvanceDialog((Stage) getScene().getWindow(), null);
                 dialog.showAndWait();
                 if (dialog.isSaved()) {
                     cashAdvanceList.add(dialog.getCashAdvance());
@@ -178,7 +167,7 @@ public class PayrollTab extends BorderPane {
                 }
             }
             case "OtherDeduction" -> {
-                OtherDeductionDialog dialog = new OtherDeductionDialog(getScene().getWindow(), null, driverList);
+                OtherDeductionDialog dialog = new OtherDeductionDialog((Stage) getScene().getWindow(), null);
                 dialog.showAndWait();
                 if (dialog.isSaved()) {
                     otherDeductionList.add(dialog.getOtherDeduction());
@@ -196,7 +185,7 @@ public class PayrollTab extends BorderPane {
         }
         switch (type) {
             case "Load" -> {
-                LoadDialog dialog = new LoadDialog(getScene().getWindow(), (Load) selected, driverList);
+                LoadDialog dialog = new LoadDialog((Stage) getScene().getWindow(), (Load) selected);
                 dialog.showAndWait();
                 if (dialog.isSaved()) {
                     table.refresh();
@@ -204,7 +193,7 @@ public class PayrollTab extends BorderPane {
                 }
             }
             case "Fuel" -> {
-                FuelTransactionDialog dialog = new FuelTransactionDialog(getScene().getWindow(), (FuelTransaction) selected, driverList);
+                FuelTransactionDialog dialog = new FuelTransactionDialog((Stage) getScene().getWindow(), (FuelTransaction) selected);
                 dialog.showAndWait();
                 if (dialog.isSaved()) {
                     table.refresh();
@@ -212,7 +201,7 @@ public class PayrollTab extends BorderPane {
                 }
             }
             case "MonthlyFee" -> {
-                MonthlyFeeDialog dialog = new MonthlyFeeDialog(getScene().getWindow(), (MonthlyFee) selected, driverList);
+                MonthlyFeeDialog dialog = new MonthlyFeeDialog((Stage) getScene().getWindow(), (MonthlyFee) selected);
                 dialog.showAndWait();
                 if (dialog.isSaved()) {
                     table.refresh();
@@ -220,7 +209,7 @@ public class PayrollTab extends BorderPane {
                 }
             }
             case "CashAdvance" -> {
-                CashAdvanceDialog dialog = new CashAdvanceDialog(getScene().getWindow(), (CashAdvance) selected, driverList);
+                CashAdvanceDialog dialog = new CashAdvanceDialog((Stage) getScene().getWindow(), (CashAdvance) selected);
                 dialog.showAndWait();
                 if (dialog.isSaved()) {
                     table.refresh();
@@ -228,7 +217,7 @@ public class PayrollTab extends BorderPane {
                 }
             }
             case "OtherDeduction" -> {
-                OtherDeductionDialog dialog = new OtherDeductionDialog(getScene().getWindow(), (OtherDeduction) selected, driverList);
+                OtherDeductionDialog dialog = new OtherDeductionDialog((Stage) getScene().getWindow(), (OtherDeduction) selected);
                 dialog.showAndWait();
                 if (dialog.isSaved()) {
                     table.refresh();
@@ -258,29 +247,43 @@ public class PayrollTab extends BorderPane {
     }
 
     private void updateFilterAndTables() {
-        // Filter and refresh all tables based on filterDriver and filterStart/filterEnd
-        tblLoads.setItems(loadList.filtered(l -> filterMatch(l.getDeliveredDate(), l.getDriver())));
-        tblFuel.setItems(fuelList.filtered(f -> filterMatch(f.getTranDate(), f.getDriver())));
-        tblMonthlyFees.setItems(monthlyFeeList.filtered(m -> filterMatch(m.getDueDate(), m.getDriver())));
-        tblCashAdvances.setItems(cashAdvanceList.filtered(c -> filterMatch(c.getAdvanceDate(), c.getDriver())));
-        tblOtherAdjustments.setItems(otherDeductionList.filtered(o -> filterMatch(o.getDate(), o.getDriver())));
+        tblLoads.setItems(loadList.filtered(l -> filterMatch(l.getDeliveredDate(), getDriverById(l.getDriverId()))));
+        // For FuelTransaction, model uses String for tranDate, but UI expects LocalDate. Convert if possible.
+        tblFuel.setItems(fuelList.filtered(f -> {
+            LocalDate date = null;
+            try { date = f.getTranDate() == null ? null : LocalDate.parse(f.getTranDate()); } catch (Exception ignored) {}
+            return filterMatch(date, getDriverById(
+                    f.getDriverId() != null ? f.getDriverId() : 0));
+        }));
+        tblMonthlyFees.setItems(monthlyFeeList.filtered(m -> filterMatch(m.getDueDate(), getDriverById(m.getDriverId()))));
+        tblCashAdvances.setItems(cashAdvanceList.filtered(c -> filterMatch(c.getAdvanceDate(), getDriverById(c.getDriverId()))));
+        tblOtherAdjustments.setItems(otherDeductionList.filtered(o -> filterMatch(o.getDate(), getDriverById(o.getDriverId()))));
     }
 
     private boolean filterMatch(LocalDate date, Driver driver) {
         boolean inDate = (date == null || (date.compareTo(filterStart) >= 0 && date.compareTo(filterEnd) <= 0));
-        boolean driverOk = (filterDriver == null || Objects.equals(driver, filterDriver));
+        boolean driverOk = (filterDriver == null || (driver != null && driver.equals(filterDriver)));
         return inDate && driverOk;
     }
 
     private void refreshDriverList() {
-        // TODO: Load drivers from database/service layer if needed.
-        // For demo, just some dummy data:
         driverList.clear();
-        driverList.addAll(
-                new Driver(1, "Alice Smith", "123-456-7890", "alice@example.com", true, 5.0, 70.0, 30.0, true, ""),
-                new Driver(2, "Bob Johnson", "555-123-4567", "bob@example.com", true, 7.0, 65.0, 35.0, false, "")
-        );
+        // Use default constructor and setters for Driver (so you don't hit the 'no suitable constructor' error)
+        Driver d1 = new Driver();
+        d1.setId(1); d1.setName("Alice Smith"); d1.setPhone("123-456-7890"); d1.setEmail("alice@example.com");
+        d1.setActive(true); d1.setCompanyServiceFeePercent(5.0); d1.setDriverPercent(70.0);
+        d1.setCompanyPercent(30.0); d1.setFuelDiscountEligible(true); d1.setNotes("");
+        Driver d2 = new Driver();
+        d2.setId(2); d2.setName("Bob Johnson"); d2.setPhone("555-123-4567"); d2.setEmail("bob@example.com");
+        d2.setActive(true); d2.setCompanyServiceFeePercent(7.0); d2.setDriverPercent(65.0);
+        d2.setCompanyPercent(35.0); d2.setFuelDiscountEligible(false); d2.setNotes("");
+        driverList.addAll(d1, d2);
+        driverIdMap = driverList.stream().collect(Collectors.toMap(Driver::getId, d -> d));
         cmbDriver.setItems(driverList);
+    }
+
+    private Driver getDriverById(int driverId) {
+        return driverIdMap.get(driverId);
     }
 
     private void setupLoadTable(TableView<Load> table) {
@@ -291,62 +294,122 @@ public class PayrollTab extends BorderPane {
         colDelivered.setCellValueFactory(new PropertyValueFactory<>("deliveredDate"));
         TableColumn<Load, Double> colGross = new TableColumn<>("Gross");
         colGross.setCellValueFactory(new PropertyValueFactory<>("grossAmount"));
-        TableColumn<Load, Driver> colDriver = new TableColumn<>("Driver");
-        colDriver.setCellValueFactory(new PropertyValueFactory<>("driver"));
+        TableColumn<Load, Integer> colDriverId = new TableColumn<>("Driver");
+        colDriverId.setCellValueFactory(new PropertyValueFactory<>("driverId"));
+        colDriverId.setCellFactory(tc -> new TableCell<>() {
+            @Override
+            protected void updateItem(Integer driverId, boolean empty) {
+                super.updateItem(driverId, empty);
+                if (empty || driverId == null) {
+                    setText("");
+                } else {
+                    Driver driver = getDriverById(driverId);
+                    setText(driver != null ? driver.getName() : String.valueOf(driverId));
+                }
+            }
+        });
         TableColumn<Load, Double> colDriverPercent = new TableColumn<>("Driver %");
         colDriverPercent.setCellValueFactory(new PropertyValueFactory<>("driverPercent"));
-        table.getColumns().setAll(colCustomer, colDelivered, colGross, colDriver, colDriverPercent);
+        table.getColumns().setAll(colCustomer, colDelivered, colGross, colDriverId, colDriverPercent);
     }
 
     private void setupFuelTable(TableView<FuelTransaction> table) {
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        TableColumn<FuelTransaction, LocalDate> colDate = new TableColumn<>("Date");
+        TableColumn<FuelTransaction, String> colDate = new TableColumn<>("Date");
         colDate.setCellValueFactory(new PropertyValueFactory<>("tranDate"));
         TableColumn<FuelTransaction, String> colVendor = new TableColumn<>("Vendor");
         colVendor.setCellValueFactory(new PropertyValueFactory<>("vendor"));
-        TableColumn<FuelTransaction, Double> colGallons = new TableColumn<>("Gallons");
+        TableColumn<FuelTransaction, String> colGallons = new TableColumn<>("Gallons");
         colGallons.setCellValueFactory(new PropertyValueFactory<>("qty"));
-        TableColumn<FuelTransaction, Double> colTotalCost = new TableColumn<>("Total Cost");
+        TableColumn<FuelTransaction, String> colTotalCost = new TableColumn<>("Total Cost");
         colTotalCost.setCellValueFactory(new PropertyValueFactory<>("amt"));
-        TableColumn<FuelTransaction, Driver> colDriver = new TableColumn<>("Driver");
-        colDriver.setCellValueFactory(new PropertyValueFactory<>("driver"));
-        table.getColumns().setAll(colDate, colVendor, colGallons, colTotalCost, colDriver);
+        TableColumn<FuelTransaction, Integer> colDriverId = new TableColumn<>("Driver");
+        colDriverId.setCellValueFactory(new PropertyValueFactory<>("driverId"));
+        colDriverId.setCellFactory(tc -> new TableCell<>() {
+            @Override
+            protected void updateItem(Integer driverId, boolean empty) {
+                super.updateItem(driverId, empty);
+                if (empty || driverId == null) {
+                    setText("");
+                } else {
+                    Driver driver = getDriverById(driverId);
+                    setText(driver != null ? driver.getName() : String.valueOf(driverId));
+                }
+            }
+        });
+        table.getColumns().setAll(colDate, colVendor, colGallons, colTotalCost, colDriverId);
     }
 
     private void setupMonthlyFeeTable(TableView<MonthlyFee> table) {
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        TableColumn<MonthlyFee, Driver> colDriver = new TableColumn<>("Driver");
-        colDriver.setCellValueFactory(new PropertyValueFactory<>("driver"));
+        TableColumn<MonthlyFee, Integer> colDriverId = new TableColumn<>("Driver");
+        colDriverId.setCellValueFactory(new PropertyValueFactory<>("driverId"));
+        colDriverId.setCellFactory(tc -> new TableCell<>() {
+            @Override
+            protected void updateItem(Integer driverId, boolean empty) {
+                super.updateItem(driverId, empty);
+                if (empty || driverId == null) {
+                    setText("");
+                } else {
+                    Driver driver = getDriverById(driverId);
+                    setText(driver != null ? driver.getName() : String.valueOf(driverId));
+                }
+            }
+        });
         TableColumn<MonthlyFee, LocalDate> colDueDate = new TableColumn<>("Due Date");
         colDueDate.setCellValueFactory(new PropertyValueFactory<>("dueDate"));
         TableColumn<MonthlyFee, String> colType = new TableColumn<>("Fee Type");
         colType.setCellValueFactory(new PropertyValueFactory<>("feeType"));
-        TableColumn<MonthlyFee, Double> colAmount = new TableColumn<>("Amount");
+        TableColumn<MonthlyFee, BigDecimal> colAmount = new TableColumn<>("Amount");
         colAmount.setCellValueFactory(new PropertyValueFactory<>("amount"));
-        TableColumn<MonthlyFee, Double> colWeeklyFee = new TableColumn<>("Weekly Fee");
+        TableColumn<MonthlyFee, BigDecimal> colWeeklyFee = new TableColumn<>("Weekly Fee");
         colWeeklyFee.setCellValueFactory(new PropertyValueFactory<>("weeklyFee"));
         TableColumn<MonthlyFee, String> colNotes = new TableColumn<>("Notes");
         colNotes.setCellValueFactory(new PropertyValueFactory<>("notes"));
-        table.getColumns().setAll(colDriver, colDueDate, colType, colAmount, colWeeklyFee, colNotes);
+        table.getColumns().setAll(colDriverId, colDueDate, colType, colAmount, colWeeklyFee, colNotes);
     }
 
     private void setupCashAdvanceTable(TableView<CashAdvance> table) {
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        TableColumn<CashAdvance, Driver> colDriver = new TableColumn<>("Driver");
-        colDriver.setCellValueFactory(new PropertyValueFactory<>("driver"));
+        TableColumn<CashAdvance, Integer> colDriverId = new TableColumn<>("Driver");
+        colDriverId.setCellValueFactory(new PropertyValueFactory<>("driverId"));
+        colDriverId.setCellFactory(tc -> new TableCell<>() {
+            @Override
+            protected void updateItem(Integer driverId, boolean empty) {
+                super.updateItem(driverId, empty);
+                if (empty || driverId == null) {
+                    setText("");
+                } else {
+                    Driver driver = getDriverById(driverId);
+                    setText(driver != null ? driver.getName() : String.valueOf(driverId));
+                }
+            }
+        });
         TableColumn<CashAdvance, LocalDate> colDate = new TableColumn<>("Advance Date");
         colDate.setCellValueFactory(new PropertyValueFactory<>("advanceDate"));
-        TableColumn<CashAdvance, Double> colAmount = new TableColumn<>("Amount");
+        TableColumn<CashAdvance, BigDecimal> colAmount = new TableColumn<>("Amount");
         colAmount.setCellValueFactory(new PropertyValueFactory<>("amount"));
         TableColumn<CashAdvance, String> colNotes = new TableColumn<>("Notes");
         colNotes.setCellValueFactory(new PropertyValueFactory<>("notes"));
-        table.getColumns().setAll(colDriver, colDate, colAmount, colNotes);
+        table.getColumns().setAll(colDriverId, colDate, colAmount, colNotes);
     }
 
     private void setupOtherDeductionTable(TableView<OtherDeduction> table) {
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        TableColumn<OtherDeduction, Driver> colDriver = new TableColumn<>("Driver");
-        colDriver.setCellValueFactory(new PropertyValueFactory<>("driver"));
+        TableColumn<OtherDeduction, Integer> colDriverId = new TableColumn<>("Driver");
+        colDriverId.setCellValueFactory(new PropertyValueFactory<>("driverId"));
+        colDriverId.setCellFactory(tc -> new TableCell<>() {
+            @Override
+            protected void updateItem(Integer driverId, boolean empty) {
+                super.updateItem(driverId, empty);
+                if (empty || driverId == null) {
+                    setText("");
+                } else {
+                    Driver driver = getDriverById(driverId);
+                    setText(driver != null ? driver.getName() : String.valueOf(driverId));
+                }
+            }
+        });
         TableColumn<OtherDeduction, LocalDate> colDate = new TableColumn<>("Date");
         colDate.setCellValueFactory(new PropertyValueFactory<>("date"));
         TableColumn<OtherDeduction, String> colType = new TableColumn<>("Type");
@@ -355,7 +418,7 @@ public class PayrollTab extends BorderPane {
         colAmount.setCellValueFactory(new PropertyValueFactory<>("amount"));
         TableColumn<OtherDeduction, String> colNotes = new TableColumn<>("Notes");
         colNotes.setCellValueFactory(new PropertyValueFactory<>("notes"));
-        table.getColumns().setAll(colDriver, colDate, colType, colAmount, colNotes);
+        table.getColumns().setAll(colDriverId, colDate, colType, colAmount, colNotes);
     }
 
     private void showAlert(String message) {

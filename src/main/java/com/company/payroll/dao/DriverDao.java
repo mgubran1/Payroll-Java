@@ -15,6 +15,14 @@ public class DriverDao {
     }
 
     private void createTableIfNotExists() {
+        // Uncomment these lines during development to force table recreation:
+        // try (Connection conn = Database.getConnection();
+        //      Statement stmt = conn.createStatement()) {
+        //     stmt.execute("DROP TABLE IF EXISTS drivers");
+        // } catch (SQLException e) {
+        //     e.printStackTrace();
+        // }
+
         String sql = "CREATE TABLE IF NOT EXISTS drivers (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                 "name TEXT NOT NULL UNIQUE," +
@@ -28,7 +36,11 @@ public class DriverDao {
                 "cdl_expiry DATE," +
                 "medical_expiry DATE," +
                 "license_number TEXT," +
-                "drivers_llc TEXT" +
+                "drivers_llc TEXT," +
+                "phone TEXT," +
+                "email TEXT," +
+                "active INTEGER DEFAULT 1," +
+                "notes TEXT" +
                 ")";
         try (Connection conn = Database.getConnection();
              Statement stmt = conn.createStatement()) {
@@ -86,8 +98,8 @@ public class DriverDao {
     }
 
     public void addDriver(Driver driver) {
-        String sql = "INSERT INTO drivers (name, truck_id, driver_percent, fuel_discount_eligible, company_service_fee_percent, company_percent, drive_type, phone_number, cdl_expiry, medical_expiry, license_number, drivers_llc) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO drivers (name, truck_id, driver_percent, fuel_discount_eligible, company_service_fee_percent, company_percent, drive_type, phone_number, cdl_expiry, medical_expiry, license_number, drivers_llc, phone, email, active, notes) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = Database.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, driver.getName());
@@ -102,6 +114,10 @@ public class DriverDao {
             pstmt.setString(10, driver.getMedicalExpiry() != null ? driver.getMedicalExpiry().toString() : null);
             pstmt.setString(11, driver.getLicenseNumber());
             pstmt.setString(12, driver.getDriversLLC());
+            pstmt.setString(13, driver.getPhone());
+            pstmt.setString(14, driver.getEmail());
+            pstmt.setInt(15, driver.isActive() ? 1 : 0);
+            pstmt.setString(16, driver.getNotes());
             pstmt.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
@@ -109,7 +125,7 @@ public class DriverDao {
     }
 
     public void updateDriver(Driver driver) {
-        String sql = "UPDATE drivers SET name=?, truck_id=?, driver_percent=?, fuel_discount_eligible=?, company_service_fee_percent=?, company_percent=?, drive_type=?, phone_number=?, cdl_expiry=?, medical_expiry=?, license_number=?, drivers_llc=? WHERE id=?";
+        String sql = "UPDATE drivers SET name=?, truck_id=?, driver_percent=?, fuel_discount_eligible=?, company_service_fee_percent=?, company_percent=?, drive_type=?, phone_number=?, cdl_expiry=?, medical_expiry=?, license_number=?, drivers_llc=?, phone=?, email=?, active=?, notes=? WHERE id=?";
         try (Connection conn = Database.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, driver.getName());
@@ -124,7 +140,11 @@ public class DriverDao {
             pstmt.setString(10, driver.getMedicalExpiry() != null ? driver.getMedicalExpiry().toString() : null);
             pstmt.setString(11, driver.getLicenseNumber());
             pstmt.setString(12, driver.getDriversLLC());
-            pstmt.setInt(13, driver.getId());
+            pstmt.setString(13, driver.getPhone());
+            pstmt.setString(14, driver.getEmail());
+            pstmt.setInt(15, driver.isActive() ? 1 : 0);
+            pstmt.setString(16, driver.getNotes());
+            pstmt.setInt(17, driver.getId());
             pstmt.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
@@ -159,6 +179,10 @@ public class DriverDao {
         driver.setMedicalExpiry(medExpiryStr != null ? LocalDate.parse(medExpiryStr) : null);
         driver.setLicenseNumber(rs.getString("license_number"));
         driver.setDriversLLC(rs.getString("drivers_llc"));
+        driver.setPhone(rs.getString("phone"));
+        driver.setEmail(rs.getString("email"));
+        driver.setActive(rs.getInt("active") == 1);
+        driver.setNotes(rs.getString("notes"));
         return driver;
     }
 }

@@ -8,6 +8,7 @@ import javafx.scene.layout.GridPane;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public class MonthlyFeeDialog extends Stage {
@@ -32,8 +33,14 @@ public class MonthlyFeeDialog extends Stage {
         driverIdField = new TextField(this.monthlyFee.getDriverId() > 0 ? String.valueOf(this.monthlyFee.getDriverId()) : "");
         dueDatePicker = new DatePicker(this.monthlyFee.getDueDate() != null ? this.monthlyFee.getDueDate() : LocalDate.now());
         feeTypeField = new TextField(this.monthlyFee.getFeeType() != null ? this.monthlyFee.getFeeType() : "");
-        amountField = new TextField(this.monthlyFee.getAmount() != 0 ? String.valueOf(this.monthlyFee.getAmount()) : "");
-        weeklyFeeField = new TextField(this.monthlyFee.getWeeklyFee() != 0 ? String.valueOf(this.monthlyFee.getWeeklyFee()) : "");
+        amountField = new TextField(
+                (this.monthlyFee.getAmount() != null && this.monthlyFee.getAmount().compareTo(BigDecimal.ZERO) != 0)
+                        ? this.monthlyFee.getAmount().toPlainString() : ""
+        );
+        weeklyFeeField = new TextField(
+                (this.monthlyFee.getWeeklyFee() != null && this.monthlyFee.getWeeklyFee().compareTo(BigDecimal.ZERO) != 0)
+                        ? this.monthlyFee.getWeeklyFee().toPlainString() : ""
+        );
         notesField = new TextArea(this.monthlyFee.getNotes() != null ? this.monthlyFee.getNotes() : "");
 
         saveButton = new Button("Save");
@@ -81,10 +88,10 @@ public class MonthlyFeeDialog extends Stage {
         if (dueDatePicker.getValue() == null) errorMsg += "Due Date required.\n";
         if (feeTypeField.getText().trim().isEmpty()) errorMsg += "Fee Type required.\n";
         if (amountField.getText().trim().isEmpty()) errorMsg += "Amount required.\n";
-        else try { Double.parseDouble(amountField.getText().trim()); }
+        else try { new BigDecimal(amountField.getText().trim()); }
         catch (NumberFormatException ex) { errorMsg += "Amount must be a number.\n"; }
         if (!weeklyFeeField.getText().trim().isEmpty()) {
-            try { Double.parseDouble(weeklyFeeField.getText().trim()); }
+            try { new BigDecimal(weeklyFeeField.getText().trim()); }
             catch (NumberFormatException ex) { errorMsg += "Weekly Fee must be a number.\n"; }
         }
         if (!errorMsg.isEmpty()) {
@@ -98,11 +105,11 @@ public class MonthlyFeeDialog extends Stage {
         monthlyFee.setDriverId(Integer.parseInt(driverIdField.getText().trim()));
         monthlyFee.setDueDate(dueDatePicker.getValue());
         monthlyFee.setFeeType(feeTypeField.getText().trim());
-        monthlyFee.setAmount(Double.parseDouble(amountField.getText().trim()));
+        monthlyFee.setAmount(new BigDecimal(amountField.getText().trim()));
         if (!weeklyFeeField.getText().trim().isEmpty()) {
-            monthlyFee.setWeeklyFee(Double.parseDouble(weeklyFeeField.getText().trim()));
+            monthlyFee.setWeeklyFee(new BigDecimal(weeklyFeeField.getText().trim()));
         } else {
-            monthlyFee.setWeeklyFee(0);
+            monthlyFee.setWeeklyFee(BigDecimal.ZERO);
         }
         monthlyFee.setNotes(notesField.getText().trim());
     }

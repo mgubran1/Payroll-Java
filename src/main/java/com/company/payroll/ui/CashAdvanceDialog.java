@@ -8,6 +8,7 @@ import javafx.scene.layout.GridPane;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public class CashAdvanceDialog extends Stage {
@@ -29,7 +30,8 @@ public class CashAdvanceDialog extends Stage {
 
         driverIdField = new TextField(this.cashAdvance.getDriverId() > 0 ? String.valueOf(this.cashAdvance.getDriverId()) : "");
         advanceDatePicker = new DatePicker(this.cashAdvance.getAdvanceDate() != null ? this.cashAdvance.getAdvanceDate() : LocalDate.now());
-        amountField = new TextField(this.cashAdvance.getAmount() != 0 ? String.valueOf(this.cashAdvance.getAmount()) : "");
+        amountField = new TextField(this.cashAdvance.getAmount() != null && this.cashAdvance.getAmount().compareTo(BigDecimal.ZERO) != 0
+                ? this.cashAdvance.getAmount().toPlainString() : "");
         notesField = new TextArea(this.cashAdvance.getNotes() != null ? this.cashAdvance.getNotes() : "");
 
         saveButton = new Button("Save");
@@ -72,7 +74,7 @@ public class CashAdvanceDialog extends Stage {
         catch (NumberFormatException ex) { errorMsg += "Driver ID must be an integer.\n"; }
         if (advanceDatePicker.getValue() == null) errorMsg += "Advance date required.\n";
         if (amountField.getText().trim().isEmpty()) errorMsg += "Amount required.\n";
-        else try { Double.parseDouble(amountField.getText().trim()); }
+        else try { new BigDecimal(amountField.getText().trim()); }
         catch (NumberFormatException ex) { errorMsg += "Amount must be a number.\n"; }
         if (!errorMsg.isEmpty()) {
             new Alert(Alert.AlertType.ERROR, errorMsg, ButtonType.OK).showAndWait();
@@ -84,7 +86,7 @@ public class CashAdvanceDialog extends Stage {
     private void updateCashAdvanceFromFields() {
         cashAdvance.setDriverId(Integer.parseInt(driverIdField.getText().trim()));
         cashAdvance.setAdvanceDate(advanceDatePicker.getValue());
-        cashAdvance.setAmount(Double.parseDouble(amountField.getText().trim()));
+        cashAdvance.setAmount(new BigDecimal(amountField.getText().trim()));
         cashAdvance.setNotes(notesField.getText().trim());
     }
 

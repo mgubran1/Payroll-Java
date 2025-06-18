@@ -11,7 +11,6 @@ import javafx.stage.Stage;
 import java.time.LocalDate;
 
 public class FuelTransactionDialog extends Stage {
-
     private TextField driverIdField;
     private DatePicker datePicker;
     private TextField vendorField;
@@ -29,11 +28,18 @@ public class FuelTransactionDialog extends Stage {
         initOwner(owner);
         initModality(Modality.APPLICATION_MODAL);
 
-        driverIdField = new TextField(this.fuelTransaction.getDriverId() > 0 ? String.valueOf(this.fuelTransaction.getDriverId()) : "");
-        datePicker = new DatePicker(this.fuelTransaction.getTranDate() != null ? this.fuelTransaction.getTranDate() : LocalDate.now());
+        driverIdField = new TextField(this.fuelTransaction.getDriverId() != null && this.fuelTransaction.getDriverId() > 0 ? String.valueOf(this.fuelTransaction.getDriverId()) : "");
+        // Model stores tranDate as String (yyyy-MM-dd), so parse it
+        LocalDate initialDate = null;
+        try {
+            if (this.fuelTransaction.getTranDate() != null) {
+                initialDate = LocalDate.parse(this.fuelTransaction.getTranDate());
+            }
+        } catch (Exception ignored) {}
+        datePicker = new DatePicker(initialDate != null ? initialDate : LocalDate.now());
         vendorField = new TextField(this.fuelTransaction.getVendor() != null ? this.fuelTransaction.getVendor() : "");
-        gallonsField = new TextField(this.fuelTransaction.getQty() != 0 ? String.valueOf(this.fuelTransaction.getQty()) : "");
-        costField = new TextField(this.fuelTransaction.getAmt() != 0 ? String.valueOf(this.fuelTransaction.getAmt()) : "");
+        gallonsField = new TextField(this.fuelTransaction.getQty() != null && !this.fuelTransaction.getQty().isBlank() ? this.fuelTransaction.getQty() : "");
+        costField = new TextField(this.fuelTransaction.getAmt() != null && !this.fuelTransaction.getAmt().isBlank() ? this.fuelTransaction.getAmt() : "");
         notesField = new TextArea(this.fuelTransaction.getNotes() != null ? this.fuelTransaction.getNotes() : "");
 
         saveButton = new Button("Save");
@@ -95,10 +101,11 @@ public class FuelTransactionDialog extends Stage {
 
     private void updateFuelTransactionFromFields() {
         fuelTransaction.setDriverId(Integer.parseInt(driverIdField.getText().trim()));
-        fuelTransaction.setTranDate(datePicker.getValue());
+        // Store as yyyy-MM-dd String
+        fuelTransaction.setTranDate(datePicker.getValue().toString());
         fuelTransaction.setVendor(vendorField.getText().trim());
-        fuelTransaction.setQty(Double.parseDouble(gallonsField.getText().trim()));
-        fuelTransaction.setAmt(Double.parseDouble(costField.getText().trim()));
+        fuelTransaction.setQty(gallonsField.getText().trim());
+        fuelTransaction.setAmt(costField.getText().trim());
         fuelTransaction.setNotes(notesField.getText().trim());
     }
 

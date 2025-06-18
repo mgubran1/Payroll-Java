@@ -18,7 +18,6 @@ import org.slf4j.LoggerFactory;
 import java.io.*;
 import java.time.LocalDate;
 import java.util.Iterator;
-import java.util.List;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -259,7 +258,7 @@ public class FuelImportTab extends BorderPane {
     // Add/Edit/Delete/Export logic
 
     private void onAdd() {
-        FuelTransactionDialog dialog = new FuelTransactionDialog(null);
+        FuelTransactionEditDialog dialog = new FuelTransactionEditDialog(null);
         dialog.showAndWait().ifPresent(entry -> {
             if (!validate(entry)) return;
             if (!fuelTransactionDao.isInvoiceImported(entry.getInvoice())) {
@@ -283,7 +282,7 @@ public class FuelImportTab extends BorderPane {
             showAlert("No Selection", "Please select a row to edit.");
             return;
         }
-        FuelTransactionDialog dialog = new FuelTransactionDialog(selected);
+        FuelTransactionEditDialog dialog = new FuelTransactionEditDialog(selected);
         dialog.showAndWait().ifPresent(entry -> {
             if (!validate(entry)) return;
             try {
@@ -339,7 +338,7 @@ public class FuelImportTab extends BorderPane {
 }
 
 // Helper dialog for Add/Edit
-class FuelTransactionDialog extends Dialog<FuelTransaction> {
+class FuelTransactionEditDialog extends Dialog<FuelTransaction> {
     private TextField[] fields = new TextField[21];
     private static final String[] LABELS = {
         "Card #", "Tran Date", "Tran Time", "Invoice", "Unit", "Driver Name", "Odometer",
@@ -347,7 +346,7 @@ class FuelTransactionDialog extends Dialog<FuelTransaction> {
         "Disc Cost", "Qty", "Disc Amt", "Disc Type", "Amt", "DB", "Currency"
     };
 
-    public FuelTransactionDialog(FuelTransaction entry) {
+    public FuelTransactionEditDialog(FuelTransaction entry) {
         setTitle(entry == null ? "Add Fuel Transaction" : "Edit Fuel Transaction");
         setHeaderText(null);
         getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);

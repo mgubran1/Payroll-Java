@@ -46,7 +46,7 @@ public class MonthlyFeeDao {
             pstmt.setInt(1, mf.getDriverId());
             pstmt.setString(2, mf.getFeeType());
             pstmt.setBigDecimal(3, mf.getAmount());
-            pstmt.setDate(4, Date.valueOf(mf.getDueDate()));
+            pstmt.setDate(4, mf.getDueDate() != null ? Date.valueOf(mf.getDueDate()) : null);
             pstmt.setBigDecimal(5, mf.getWeeklyFee());
             pstmt.setString(6, mf.getNotes());
             pstmt.setTimestamp(7, mf.getCreatedAt() == null ? new Timestamp(System.currentTimeMillis()) : Timestamp.valueOf(mf.getCreatedAt()));
@@ -68,7 +68,7 @@ public class MonthlyFeeDao {
             pstmt.setInt(1, mf.getDriverId());
             pstmt.setString(2, mf.getFeeType());
             pstmt.setBigDecimal(3, mf.getAmount());
-            pstmt.setDate(4, Date.valueOf(mf.getDueDate()));
+            pstmt.setDate(4, mf.getDueDate() != null ? Date.valueOf(mf.getDueDate()) : null);
             pstmt.setBigDecimal(5, mf.getWeeklyFee());
             pstmt.setString(6, mf.getNotes());
             pstmt.setTimestamp(7, mf.getCreatedAt() == null ? new Timestamp(System.currentTimeMillis()) : Timestamp.valueOf(mf.getCreatedAt()));

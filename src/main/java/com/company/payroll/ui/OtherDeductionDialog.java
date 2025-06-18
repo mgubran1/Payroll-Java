@@ -63,24 +63,26 @@ public class OtherDeductionDialog extends Stage {
         grid.add(amountField, 1, 3);
         grid.add(new Label("Notes:"), 0, 4);
         grid.add(notesField, 1, 4);
-        grid.add(saveButton, 0, 5);
-        grid.add(cancelButton, 1, 5);
+
+        ButtonBar buttonBar = new ButtonBar();
+        buttonBar.getButtons().addAll(saveButton, cancelButton);
+        grid.add(buttonBar, 0, 5, 2, 1);
 
         setScene(new Scene(grid));
     }
 
     private boolean validate() {
-        String errorMsg = "";
-        if (driverIdField.getText().trim().isEmpty()) errorMsg += "Driver ID required.\n";
+        StringBuilder errorMsg = new StringBuilder();
+        if (driverIdField.getText().trim().isEmpty()) errorMsg.append("Driver ID required.\n");
         else try { Integer.parseInt(driverIdField.getText().trim()); }
-        catch (NumberFormatException ex) { errorMsg += "Driver ID must be an integer.\n"; }
-        if (datePicker.getValue() == null) errorMsg += "Date required.\n";
-        if (deductionTypeField.getText().trim().isEmpty()) errorMsg += "Deduction type required.\n";
-        if (amountField.getText().trim().isEmpty()) errorMsg += "Amount required.\n";
+        catch (NumberFormatException ex) { errorMsg.append("Driver ID must be an integer.\n"); }
+        if (datePicker.getValue() == null) errorMsg.append("Date required.\n");
+        if (deductionTypeField.getText().trim().isEmpty()) errorMsg.append("Deduction type required.\n");
+        if (amountField.getText().trim().isEmpty()) errorMsg.append("Amount required.\n");
         else try { Double.parseDouble(amountField.getText().trim()); }
-        catch (NumberFormatException ex) { errorMsg += "Amount must be a number.\n"; }
-        if (!errorMsg.isEmpty()) {
-            new Alert(Alert.AlertType.ERROR, errorMsg, ButtonType.OK).showAndWait();
+        catch (NumberFormatException ex) { errorMsg.append("Amount must be a number.\n"); }
+        if (errorMsg.length() > 0) {
+            new Alert(Alert.AlertType.ERROR, errorMsg.toString(), ButtonType.OK).showAndWait();
             return false;
         }
         return true;

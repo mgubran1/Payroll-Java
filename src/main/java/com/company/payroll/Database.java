@@ -17,6 +17,9 @@ public class Database {
             // Enforce foreign key constraints
             stmt.execute("PRAGMA foreign_keys = ON;");
 
+            // Drop and recreate drivers table to ensure schema is always correct (DEV ONLY! REMOVE in production)
+            stmt.execute("DROP TABLE IF EXISTS drivers;");
+
             // DRIVERS
             stmt.execute("""
                 CREATE TABLE IF NOT EXISTS drivers (
@@ -32,7 +35,11 @@ public class Database {
                     cdl_expiry DATE,
                     medical_expiry DATE,
                     license_number TEXT,
-                    drivers_llc TEXT
+                    drivers_llc TEXT,
+                    phone TEXT,
+                    email TEXT,
+                    active INTEGER DEFAULT 1,
+                    notes TEXT
                 );
             """);
 
@@ -68,6 +75,8 @@ public class Database {
                     amount NUMERIC(10,2) NOT NULL,
                     disc_amt NUMERIC(10,2),
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    vendor TEXT,
+                    notes TEXT,
                     FOREIGN KEY(driver_id) REFERENCES drivers(id)
                 );
             """);

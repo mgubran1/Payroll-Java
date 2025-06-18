@@ -18,15 +18,15 @@ public class FuelTransactionDao {
     public FuelTransactionDao() {
         createTableIfNotExists();
     }
-	public List<FuelTransaction> getAllTransactions() {
-		return getAllFuel();
-	}
+    public List<FuelTransaction> getAllTransactions() {
+        return getAllFuel();
+    }
 
     private void createTableIfNotExists() {
         String sql = "CREATE TABLE IF NOT EXISTS fuel_transactions (" +
                 "cardNumber TEXT, tranDate TEXT, tranTime TEXT, invoice TEXT PRIMARY KEY, unit TEXT, driverName TEXT, odometer TEXT, " +
                 "locationName TEXT, city TEXT, stateProv TEXT, fees TEXT, item TEXT, unitPrice TEXT, discPPU TEXT, discCost TEXT, qty TEXT, " +
-                "discAmt TEXT, discType TEXT, amt TEXT, db TEXT, currency TEXT)";
+                "discAmt TEXT, discType TEXT, amt TEXT, db TEXT, currency TEXT, driver_id INTEGER, vendor TEXT, notes TEXT)";
         try (Connection conn = DriverManager.getConnection(url);
              Statement stmt = conn.createStatement()) {
             stmt.execute(sql);
@@ -50,7 +50,7 @@ public class FuelTransactionDao {
     }
 
     public void addTransaction(FuelTransaction entry) {
-        String sql = "INSERT OR IGNORE INTO fuel_transactions VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT OR IGNORE INTO fuel_transactions VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = DriverManager.getConnection(url);
              PreparedStatement ps = conn.prepareStatement(sql)) {
             setParams(ps, entry);
@@ -63,7 +63,7 @@ public class FuelTransactionDao {
 
     public void updateTransaction(FuelTransaction entry) {
         String sql = "UPDATE fuel_transactions SET cardNumber=?,tranDate=?,tranTime=?,unit=?,driverName=?,odometer=?,locationName=?,city=?," +
-                "stateProv=?,fees=?,item=?,unitPrice=?,discPPU=?,discCost=?,qty=?,discAmt=?,discType=?,amt=?,db=?,currency=? WHERE invoice=?";
+                "stateProv=?,fees=?,item=?,unitPrice=?,discPPU=?,discCost=?,qty=?,discAmt=?,discType=?,amt=?,db=?,currency=?,driver_id=?,vendor=?,notes=? WHERE invoice=?";
         try (Connection conn = DriverManager.getConnection(url);
              PreparedStatement ps = conn.prepareStatement(sql)) {
             // all except invoice (which is last param)
@@ -87,7 +87,14 @@ public class FuelTransactionDao {
             ps.setString(18, entry.getAmt());
             ps.setString(19, entry.getDb());
             ps.setString(20, entry.getCurrency());
-            ps.setString(21, entry.getInvoice());
+            if (entry.getDriverId() != null) {
+                ps.setInt(21, entry.getDriverId());
+            } else {
+                ps.setNull(21, Types.INTEGER);
+            }
+            ps.setString(22, entry.getVendor());
+            ps.setString(23, entry.getNotes());
+            ps.setString(24, entry.getInvoice());
             ps.executeUpdate();
             logger.info("Updated transaction: {}", entry.getInvoice());
         } catch (SQLException ex) {
@@ -122,12 +129,10 @@ public class FuelTransactionDao {
         return list;
     }
 
-    // Robust alias method for compatibility with various UIs
     public List<FuelTransaction> getAllFuelTransactions() {
         return getAllFuel();
     }
 
-    // For integration: Get by date
     public List<FuelTransaction> getTransactionsByDate(String date) {
         List<FuelTransaction> list = new ArrayList<>();
         String sql = "SELECT * FROM fuel_transactions WHERE tranDate = ?";
@@ -144,7 +149,6 @@ public class FuelTransactionDao {
         return list;
     }
 
-    // For integration: Get by driver
     public List<FuelTransaction> getTransactionsByDriver(String driverName) {
         List<FuelTransaction> list = new ArrayList<>();
         String sql = "SELECT * FROM fuel_transactions WHERE driverName = ?";
@@ -164,15 +168,16 @@ public class FuelTransactionDao {
     public void exportToCSV(File file) throws IOException {
         List<FuelTransaction> all = getAllFuel();
         try (PrintWriter pw = new PrintWriter(file)) {
-            // Write CSV header
-            pw.println("Card #,Tran Date,Tran Time,Invoice,Unit,Driver Name,Odometer,Location Name,City,State/Prov,Fees,Item,Unit Price,Disc PPU,Disc Cost,Qty,Disc Amt,Disc Type,Amt,DB,Currency");
+            pw.println("Card #,Tran Date,Tran Time,Invoice,Unit,Driver Name,Odometer,Location Name,City,State/Prov,Fees,Item,Unit Price,Disc PPU,Disc Cost,Qty,Disc Amt,Disc Type,Amt,DB,Currency,DriverID,Vendor,Notes");
             for (FuelTransaction tx : all) {
-                pw.printf("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
+                pw.printf("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
                         csv(tx.getCardNumber()), csv(tx.getTranDate()), csv(tx.getTranTime()), csv(tx.getInvoice()),
                         csv(tx.getUnit()), csv(tx.getDriverName()), csv(tx.getOdometer()), csv(tx.getLocationName()),
                         csv(tx.getCity()), csv(tx.getStateProv()), csv(tx.getFees()), csv(tx.getItem()),
                         csv(tx.getUnitPrice()), csv(tx.getDiscPPU()), csv(tx.getDiscCost()), csv(tx.getQty()),
-                        csv(tx.getDiscAmt()), csv(tx.getDiscType()), csv(tx.getAmt()), csv(tx.getDb()), csv(tx.getCurrency())
+                        csv(tx.getDiscAmt()), csv(tx.getDiscType()), csv(tx.getAmt()), csv(tx.getDb()), csv(tx.getCurrency()),
+                        tx.getDriverId() != null ? tx.getDriverId().toString() : "",
+                        csv(tx.getVendor()), csv(tx.getNotes())
                 );
             }
             logger.info("Exported {} transactions to {}", all.size(), file.getAbsolutePath());
@@ -207,6 +212,13 @@ public class FuelTransactionDao {
         ps.setString(19, entry.getAmt());
         ps.setString(20, entry.getDb());
         ps.setString(21, entry.getCurrency());
+        if (entry.getDriverId() != null) {
+            ps.setInt(22, entry.getDriverId());
+        } else {
+            ps.setNull(22, Types.INTEGER);
+        }
+        ps.setString(23, entry.getVendor());
+        ps.setString(24, entry.getNotes());
     }
 
     private FuelTransaction readEntry(ResultSet rs) throws SQLException {
@@ -232,6 +244,10 @@ public class FuelTransactionDao {
         entry.setAmt(rs.getString(19));
         entry.setDb(rs.getString(20));
         entry.setCurrency(rs.getString(21));
+        int driverId = rs.getInt(22);
+        entry.setDriverId(rs.wasNull() ? null : driverId);
+        entry.setVendor(rs.getString(23));
+        entry.setNotes(rs.getString(24));
         return entry;
     }
 }

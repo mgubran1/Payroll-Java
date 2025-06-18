@@ -64,7 +64,7 @@ public class CashAdvanceDao {
              PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             pstmt.setInt(1, ca.getDriverId());
             pstmt.setBigDecimal(2, ca.getAmount());
-            pstmt.setDate(3, Date.valueOf(ca.getIssuedDate()));
+            pstmt.setDate(3, ca.getIssuedDate() != null ? Date.valueOf(ca.getIssuedDate()) : null);
             pstmt.setBigDecimal(4, ca.getWeeklyRepayment());
             pstmt.setString(5, ca.getNotes());
             pstmt.setString(6, ca.getStatus());
@@ -91,7 +91,7 @@ public class CashAdvanceDao {
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, ca.getDriverId());
             pstmt.setBigDecimal(2, ca.getAmount());
-            pstmt.setDate(3, Date.valueOf(ca.getIssuedDate()));
+            pstmt.setDate(3, ca.getIssuedDate() != null ? Date.valueOf(ca.getIssuedDate()) : null);
             pstmt.setBigDecimal(4, ca.getWeeklyRepayment());
             pstmt.setString(5, ca.getNotes());
             pstmt.setString(6, ca.getStatus());
@@ -124,7 +124,8 @@ public class CashAdvanceDao {
         ca.setId(rs.getInt("id"));
         ca.setDriverId(rs.getInt("driver_id"));
         ca.setAmount(rs.getBigDecimal("amount"));
-        ca.setIssuedDate(rs.getDate("issued_date").toLocalDate());
+        Date issuedDate = rs.getDate("issued_date");
+        ca.setIssuedDate(issuedDate != null ? issuedDate.toLocalDate() : null);
         ca.setWeeklyRepayment(rs.getBigDecimal("weekly_repayment"));
         ca.setNotes(rs.getString("notes"));
         ca.setStatus(rs.getString("status"));
@@ -132,6 +133,7 @@ public class CashAdvanceDao {
         ca.setAssignedPayrollId(rs.wasNull() ? null : payrollId);
         Timestamp ts = rs.getTimestamp("created_at");
         ca.setCreatedAt(ts == null ? null : ts.toLocalDateTime());
+        ca.setAdvanceDate(ca.getIssuedDate());
         return ca;
     }
 }

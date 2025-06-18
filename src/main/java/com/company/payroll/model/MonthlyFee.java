@@ -1,27 +1,30 @@
 package com.company.payroll.model;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.Objects;
+import java.time.LocalDateTime;
 
 public class MonthlyFee {
     private int id;
     private int driverId;
-    private LocalDate dueDate;
     private String feeType;
-    private double amount;
-    private double weeklyFee;
+    private BigDecimal amount;
+    private LocalDate dueDate;
+    private BigDecimal weeklyFee;
     private String notes;
+    private LocalDateTime createdAt;
 
     public MonthlyFee() {}
 
-    public MonthlyFee(int id, int driverId, LocalDate dueDate, String feeType, double amount, double weeklyFee, String notes) {
+    public MonthlyFee(int id, int driverId, String feeType, BigDecimal amount, LocalDate dueDate, BigDecimal weeklyFee, String notes, LocalDateTime createdAt) {
         this.id = id;
         this.driverId = driverId;
-        this.dueDate = dueDate;
         this.feeType = feeType;
         this.amount = amount;
+        this.dueDate = dueDate;
         this.weeklyFee = weeklyFee;
         this.notes = notes;
+        this.createdAt = createdAt;
     }
 
     public int getId() { return id; }
@@ -30,44 +33,21 @@ public class MonthlyFee {
     public int getDriverId() { return driverId; }
     public void setDriverId(int driverId) { this.driverId = driverId; }
 
-    public LocalDate getDueDate() { return dueDate; }
-    public void setDueDate(LocalDate dueDate) { this.dueDate = dueDate; }
-
     public String getFeeType() { return feeType; }
     public void setFeeType(String feeType) { this.feeType = feeType; }
 
-    public double getAmount() { return amount; }
-    public void setAmount(double amount) { this.amount = amount; }
+    public BigDecimal getAmount() { return amount; }
+    public void setAmount(BigDecimal amount) { this.amount = amount; }
 
-    public double getWeeklyFee() { return weeklyFee; }
-    public void setWeeklyFee(double weeklyFee) { this.weeklyFee = weeklyFee; }
+    public LocalDate getDueDate() { return dueDate; }
+    public void setDueDate(LocalDate dueDate) { this.dueDate = dueDate; }
+
+    public BigDecimal getWeeklyFee() { return weeklyFee; }
+    public void setWeeklyFee(BigDecimal weeklyFee) { this.weeklyFee = weeklyFee; }
 
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
 
-    @Override
-    public String toString() {
-        return "MonthlyFee{" +
-                "id=" + id +
-                ", driverId=" + driverId +
-                ", dueDate=" + dueDate +
-                ", feeType='" + feeType + '\'' +
-                ", amount=" + amount +
-                ", weeklyFee=" + weeklyFee +
-                ", notes='" + notes + '\'' +
-                '}';
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof MonthlyFee)) return false;
-        MonthlyFee that = (MonthlyFee) o;
-        return id == that.id;
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(id);
-    }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }
