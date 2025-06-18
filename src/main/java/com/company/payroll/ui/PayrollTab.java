@@ -1,428 +1,504 @@
 package com.company.payroll.ui;
 
+import com.company.payroll.dao.*;
 import com.company.payroll.model.*;
+import javafx.beans.property.ReadOnlyObjectWrapper;
+import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
-import javafx.stage.Stage;
+import javafx.scene.layout.*;
 import javafx.util.StringConverter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.temporal.WeekFields;
-import java.util.*;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
+/**
+ * Professional Payroll Tab implementation for Semi-Truck Payroll System.
+ * - Dynamically fetches drivers from Employee/Driver DB (no hardcoded values)
+ * - Fetches and displays all payroll components for the selected driver and period
+ * - Fully interactive; reflects latest data and supports CRUD for adjustments
+ * - All calculations follow the provided domain logic and ensure transparency
+ */
 public class PayrollTab extends BorderPane {
 
+    private final DriverDao driverDao = new DriverDao();
+    private final LoadDao loadDao = new LoadDao();
+    private final FuelTransactionDao fuelTransactionDao = new FuelTransactionDao();
+    private final MonthlyFeeDao monthlyFeeDao = new MonthlyFeeDao();
+    private final CashAdvanceDao cashAdvanceDao = new CashAdvanceDao();
+    private final OtherDeductionDao otherDeductionDao = new OtherDeductionDao();
+
     private final ObservableList<Driver> driverList = FXCollections.observableArrayList();
-    private final ObservableList<Load> loadList = FXCollections.observableArrayList();
-    private final ObservableList<FuelTransaction> fuelList = FXCollections.observableArrayList();
-    private final ObservableList<MonthlyFee> monthlyFeeList = FXCollections.observableArrayList();
-    private final ObservableList<CashAdvance> cashAdvanceList = FXCollections.observableArrayList();
-    private final ObservableList<OtherDeduction> otherDeductionList = FXCollections.observableArrayList();
+    private final ObservableList<Load> filteredLoads = FXCollections.observableArrayList();
+    private final ObservableList<FuelTransaction> filteredFuels = FXCollections.observableArrayList();
+    private final ObservableList<MonthlyFee> filteredFees = FXCollections.observableArrayList();
+    private final ObservableList<CashAdvance> filteredAdvances = FXCollections.observableArrayList();
+    private final ObservableList<OtherDeduction> filteredAdjustments = FXCollections.observableArrayList();
 
-    private ComboBox<Driver> cmbDriver;
-    private DatePicker dpStart;
-    private DatePicker dpEnd;
-    private Button btnDateRangeApply;
+    private ComboBox<Driver> driverCombo;
+    private DatePicker fromDatePicker, toDatePicker;
+    private Button applyRangeBtn;
+    private Label grossLabel, serviceFeeLabel, grossAfterServiceFeeLabel, fuelLabel,
+            grossAfterFuelLabel, driverShareLabel, companyShareLabel, deductionsLabel, netLabel;
 
-    private TabPane subTabs;
-    private TableView<Load> tblLoads;
-    private TableView<FuelTransaction> tblFuel;
-    private TableView<MonthlyFee> tblMonthlyFees;
-    private TableView<CashAdvance> tblCashAdvances;
-    private TableView<OtherDeduction> tblOtherAdjustments;
-
-    private LocalDate filterStart;
-    private LocalDate filterEnd;
-    private Driver filterDriver;
-
-    private Map<Integer, Driver> driverIdMap = new HashMap<>();
+    private TableView<Load> loadsTable;
+    private TableView<FuelTransaction> fuelTable;
+    private TableView<MonthlyFee> feesTable;
+    private TableView<CashAdvance> advancesTable;
+    private TableView<OtherDeduction> adjustmentsTable;
 
     public PayrollTab() {
-        setPadding(new Insets(10));
-        initTopSection();
-        initSubTabs();
-        refreshDriverList();
-        filterStart = LocalDate.now().with(WeekFields.of(Locale.getDefault()).dayOfWeek(), 1);
-        filterEnd = filterStart.plusDays(6);
-        updateFilterAndTables();
+        buildUI();
+        refreshDrivers();
+        refreshPayroll();
     }
 
-    private void initTopSection() {
-        cmbDriver = new ComboBox<>();
-        cmbDriver.setPromptText("Select Driver");
-        cmbDriver.setConverter(new StringConverter<>() {
-            @Override
-            public String toString(Driver driver) {
-                return driver != null ? driver.getName() : "";
-            }
-            @Override
-            public Driver fromString(String s) {
-                return driverList.stream().filter(d -> d.getName().equals(s)).findFirst().orElse(null);
-            }
+    private void buildUI() {
+        // Top filter controls
+        driverCombo = new ComboBox<>(driverList);
+        driverCombo.setPromptText("Select Driver");
+        driverCombo.setMinWidth(220);
+        driverCombo.setConverter(new StringConverter<Driver>() {
+            @Override public String toString(Driver d) { return d != null ? d.getName() : ""; }
+            @Override public Driver fromString(String s) { return null; }
         });
-        cmbDriver.valueProperty().addListener((obs, oldVal, newVal) -> {
-            filterDriver = newVal;
-            updateFilterAndTables();
+        driverCombo.valueProperty().addListener((obs, old, val) -> refreshPayroll());
+
+        fromDatePicker = new DatePicker(LocalDate.now().with(java.time.DayOfWeek.MONDAY));
+        toDatePicker = new DatePicker(LocalDate.now().with(java.time.DayOfWeek.SUNDAY));
+        fromDatePicker.valueProperty().addListener((obs, old, val) -> refreshPayroll());
+        toDatePicker.valueProperty().addListener((obs, old, val) -> refreshPayroll());
+
+        applyRangeBtn = new Button("Apply Date Range");
+        applyRangeBtn.setOnAction(e -> refreshPayroll());
+
+        HBox filterRow = new HBox(12, new Label("Driver:"), driverCombo,
+                new Label("From:"), fromDatePicker,
+                new Label("To:"), toDatePicker, applyRangeBtn);
+        filterRow.setAlignment(Pos.CENTER_LEFT);
+        filterRow.setPadding(new Insets(10));
+
+        // Summary grid
+        grossLabel = createSummaryLabel();
+        serviceFeeLabel = createSummaryLabel();
+        grossAfterServiceFeeLabel = createSummaryLabel();
+        fuelLabel = createSummaryLabel();
+        grossAfterFuelLabel = createSummaryLabel();
+        driverShareLabel = createSummaryLabel();
+        companyShareLabel = createSummaryLabel();
+        deductionsLabel = createSummaryLabel();
+        netLabel = createSummaryLabel();
+
+        GridPane summaryGrid = new GridPane();
+        summaryGrid.setPadding(new Insets(10));
+        summaryGrid.setHgap(15);
+        summaryGrid.setVgap(8);
+
+        summaryGrid.addRow(0,
+                new Label("Gross:"), grossLabel,
+                new Label("Service Fee:"), serviceFeeLabel,
+                new Label("Gross after Service Fee:"), grossAfterServiceFeeLabel,
+                new Label("Fuel:"), fuelLabel
+        );
+        summaryGrid.addRow(1,
+                new Label("Gross after Fuel:"), grossAfterFuelLabel,
+                new Label("Driver Share:"), driverShareLabel,
+                new Label("Company Share:"), companyShareLabel,
+                new Label("Other Deductions:"), deductionsLabel,
+                new Label("Net:"), netLabel
+        );
+
+        // Details tabs
+        loadsTable = createLoadsTable();
+        fuelTable = createFuelTable();
+        feesTable = createFeesTable();
+        advancesTable = createAdvancesTable();
+        adjustmentsTable = createAdjustmentsTable();
+
+        TabPane detailsTabs = new TabPane(
+                new Tab("Loads", loadsTable),
+                new Tab("Fuel", fuelTable),
+                new Tab("Monthly Fees", withCRUD(feesTable, "MonthlyFee")),
+                new Tab("Cash Advances", withCRUD(advancesTable, "CashAdvance")),
+                new Tab("Other Adjustments", withCRUD(adjustmentsTable, "OtherAdjustment"))
+        );
+        detailsTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+
+        VBox mainVBox = new VBox(filterRow, summaryGrid, detailsTabs);
+        mainVBox.setSpacing(8);
+
+        setCenter(mainVBox);
+    }
+
+    private Label createSummaryLabel() {
+        Label l = new Label("$0.00");
+        l.setMinWidth(80);
+        return l;
+    }
+
+    private VBox withCRUD(TableView<?> table, String type) {
+        Button addBtn = new Button("Add");
+        Button editBtn = new Button("Edit");
+        Button delBtn = new Button("Delete");
+        HBox hbox = new HBox(8, addBtn, editBtn, delBtn);
+        hbox.setAlignment(Pos.CENTER_LEFT);
+        hbox.setPadding(new Insets(5, 0, 5, 0));
+
+        if ("MonthlyFee".equals(type)) {
+            addBtn.setOnAction(e -> addOrEditMonthlyFee(null));
+            editBtn.setOnAction(e -> {
+                MonthlyFee selected = (MonthlyFee) feesTable.getSelectionModel().getSelectedItem();
+                if (selected != null) addOrEditMonthlyFee(selected);
+            });
+            delBtn.setOnAction(e -> {
+                MonthlyFee selected = (MonthlyFee) feesTable.getSelectionModel().getSelectedItem();
+                if (selected != null) deleteMonthlyFee(selected);
+            });
+        } else if ("CashAdvance".equals(type)) {
+            addBtn.setOnAction(e -> addOrEditCashAdvance(null));
+            editBtn.setOnAction(e -> {
+                CashAdvance selected = (CashAdvance) advancesTable.getSelectionModel().getSelectedItem();
+                if (selected != null) addOrEditCashAdvance(selected);
+            });
+            delBtn.setOnAction(e -> {
+                CashAdvance selected = (CashAdvance) advancesTable.getSelectionModel().getSelectedItem();
+                if (selected != null) deleteCashAdvance(selected);
+            });
+        } else if ("OtherAdjustment".equals(type)) {
+            addBtn.setOnAction(e -> addOrEditAdjustment(null));
+            editBtn.setOnAction(e -> {
+                OtherDeduction selected = (OtherDeduction) adjustmentsTable.getSelectionModel().getSelectedItem();
+                if (selected != null) addOrEditAdjustment(selected);
+            });
+            delBtn.setOnAction(e -> {
+                OtherDeduction selected = (OtherDeduction) adjustmentsTable.getSelectionModel().getSelectedItem();
+                if (selected != null) deleteAdjustment(selected);
+            });
+        }
+        VBox box = new VBox(hbox, table);
+        VBox.setVgrow(table, Priority.ALWAYS);
+        return box;
+    }
+
+    // Table creation
+    private TableView<Load> createLoadsTable() {
+        TableView<Load> table = new TableView<>(filteredLoads);
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+
+        TableColumn<Load, Number> idCol = new TableColumn<>("ID");
+        idCol.setCellValueFactory(cd -> new ReadOnlyObjectWrapper<>(cd.getValue().getId()));
+
+        TableColumn<Load, String> deliveredCol = new TableColumn<>("Delivered");
+        deliveredCol.setCellValueFactory(cd -> new SimpleStringProperty(
+                cd.getValue().getDeliveredDate() != null ? cd.getValue().getDeliveredDate().toString() : ""
+        ));
+
+        TableColumn<Load, String> customerCol = new TableColumn<>("Customer");
+        customerCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getCustomer()));
+
+        TableColumn<Load, Number> grossCol = new TableColumn<>("Gross");
+        grossCol.setCellValueFactory(cd -> new ReadOnlyObjectWrapper<>(cd.getValue().getGrossAmount()));
+
+        TableColumn<Load, Number> driverPercentCol = new TableColumn<>("Driver %");
+        driverPercentCol.setCellValueFactory(cd -> new ReadOnlyObjectWrapper<>(cd.getValue().getDriverPercent()));
+
+        TableColumn<Load, Number> driverAmountCol = new TableColumn<>("Driver Amount");
+        driverAmountCol.setCellValueFactory(cd -> new ReadOnlyObjectWrapper<>(
+                cd.getValue().getGrossAmount() * cd.getValue().getDriverPercent() / 100.0
+        ));
+
+        table.getColumns().addAll(idCol, deliveredCol, customerCol, grossCol, driverPercentCol, driverAmountCol);
+        table.setPlaceholder(new Label("No loads for this period."));
+        return table;
+    }
+
+    private TableView<FuelTransaction> createFuelTable() {
+        TableView<FuelTransaction> table = new TableView<>(filteredFuels);
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+
+        TableColumn<FuelTransaction, String> dateCol = new TableColumn<>("Date");
+        dateCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getTranDate()));
+
+        TableColumn<FuelTransaction, String> vendorCol = new TableColumn<>("Vendor");
+        vendorCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getVendor()));
+
+        TableColumn<FuelTransaction, String> gallonsCol = new TableColumn<>("Gallons");
+        gallonsCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getQty()));
+
+        TableColumn<FuelTransaction, String> totalCostCol = new TableColumn<>("Total Cost");
+        totalCostCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getAmt()));
+
+        table.getColumns().addAll(dateCol, vendorCol, gallonsCol, totalCostCol);
+        table.setPlaceholder(new Label("No fuel charges for this period."));
+        return table;
+    }
+
+    private TableView<MonthlyFee> createFeesTable() {
+        TableView<MonthlyFee> table = new TableView<>(filteredFees);
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+
+        TableColumn<MonthlyFee, Number> idCol = new TableColumn<>("ID");
+        idCol.setCellValueFactory(cd -> new ReadOnlyObjectWrapper<>(cd.getValue().getId()));
+
+        TableColumn<MonthlyFee, String> typeCol = new TableColumn<>("Type");
+        typeCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getFeeType()));
+
+        TableColumn<MonthlyFee, String> dueDateCol = new TableColumn<>("Due Date");
+        dueDateCol.setCellValueFactory(cd -> new SimpleStringProperty(
+            cd.getValue().getDueDate() != null ? cd.getValue().getDueDate().toString() : ""
+        ));
+
+        TableColumn<MonthlyFee, String> amountCol = new TableColumn<>("Amount");
+        amountCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getAmount() != null ? cd.getValue().getAmount().toString() : "0.00"));
+
+        TableColumn<MonthlyFee, String> weeklyCol = new TableColumn<>("Weekly Fee");
+        weeklyCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getWeeklyFee() != null ? cd.getValue().getWeeklyFee().toString() : "0.00"));
+
+        TableColumn<MonthlyFee, String> notesCol = new TableColumn<>("Notes");
+        notesCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getNotes()));
+
+        table.getColumns().addAll(idCol, typeCol, dueDateCol, amountCol, weeklyCol, notesCol);
+        table.setPlaceholder(new Label("No monthly fees for this period."));
+        return table;
+    }
+
+    private TableView<CashAdvance> createAdvancesTable() {
+        TableView<CashAdvance> table = new TableView<>(filteredAdvances);
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+
+        TableColumn<CashAdvance, Number> idCol = new TableColumn<>("ID");
+        idCol.setCellValueFactory(cd -> new ReadOnlyObjectWrapper<>(cd.getValue().getId()));
+
+        TableColumn<CashAdvance, String> issuedDateCol = new TableColumn<>("Issued Date");
+        issuedDateCol.setCellValueFactory(cd -> new SimpleStringProperty(
+            cd.getValue().getIssuedDate() != null ? cd.getValue().getIssuedDate().toString() : ""
+        ));
+
+        TableColumn<CashAdvance, String> noteCol = new TableColumn<>("Note");
+        noteCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getNotes()));
+
+        TableColumn<CashAdvance, String> amountCol = new TableColumn<>("Amount");
+        amountCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getAmount() != null ? cd.getValue().getAmount().toString() : "0.00"));
+
+        TableColumn<CashAdvance, String> weeklyCol = new TableColumn<>("Weekly Repayment");
+        weeklyCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getWeeklyRepayment() != null ? cd.getValue().getWeeklyRepayment().toString() : "0.00"));
+
+        table.getColumns().addAll(idCol, issuedDateCol, noteCol, amountCol, weeklyCol);
+        table.setPlaceholder(new Label("No cash advances for this period."));
+        return table;
+    }
+
+    private TableView<OtherDeduction> createAdjustmentsTable() {
+        TableView<OtherDeduction> table = new TableView<>(filteredAdjustments);
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+
+        TableColumn<OtherDeduction, Number> idCol = new TableColumn<>("ID");
+        idCol.setCellValueFactory(cd -> new ReadOnlyObjectWrapper<>(cd.getValue().getId()));
+
+        TableColumn<OtherDeduction, String> dateCol = new TableColumn<>("Date");
+        dateCol.setCellValueFactory(cd -> new SimpleStringProperty(
+            cd.getValue().getDate() != null ? cd.getValue().getDate().toString() : ""
+        ));
+
+        TableColumn<OtherDeduction, String> reasonCol = new TableColumn<>("Reason");
+        reasonCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getReason()));
+
+        TableColumn<OtherDeduction, String> amountCol = new TableColumn<>("Amount");
+        amountCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getAmount() != null ? cd.getValue().getAmount().toString() : "0.00"));
+
+        TableColumn<OtherDeduction, String> typeCol = new TableColumn<>("Type");
+        typeCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getReimbursed() == 1 ? "Reimbursement" : "Deduction"));
+
+        table.getColumns().addAll(idCol, dateCol, reasonCol, amountCol, typeCol);
+        table.setPlaceholder(new Label("No adjustments for this period."));
+        return table;
+    }
+
+    private void addOrEditMonthlyFee(MonthlyFee fee) {
+        MonthlyFeeDialog dialog = new MonthlyFeeDialog(fee);
+        Optional<MonthlyFee> result = dialog.showAndWait();
+        result.ifPresent(mf -> {
+            if (fee == null) {
+                monthlyFeeDao.addMonthlyFee(mf);
+            } else {
+                monthlyFeeDao.updateMonthlyFee(mf);
+            }
+            refreshPayroll();
         });
-
-        dpStart = new DatePicker(LocalDate.now().with(WeekFields.of(Locale.getDefault()).dayOfWeek(), 1));
-        dpEnd = new DatePicker(dpStart.getValue().plusDays(6));
-
-        btnDateRangeApply = new Button("Apply Date Range");
-        btnDateRangeApply.setOnAction(e -> {
-            filterStart = dpStart.getValue();
-            filterEnd = dpEnd.getValue();
-            updateFilterAndTables();
-        });
-
-        HBox filters = new HBox(10, new Label("Driver:"), cmbDriver, new Label("Start:"), dpStart, new Label("End:"), dpEnd, btnDateRangeApply);
-        filters.setPadding(new Insets(10, 0, 10, 0));
-        setTop(filters);
     }
 
-    private void initSubTabs() {
-        subTabs = new TabPane();
-
-        tblLoads = new TableView<>(loadList);
-        setupLoadTable(tblLoads);
-        VBox loadBox = new VBox(10, createCRUDButtons(tblLoads, "Load"), tblLoads);
-        Tab tabLoads = new Tab("Loads", loadBox);
-
-        tblFuel = new TableView<>(fuelList);
-        setupFuelTable(tblFuel);
-        VBox fuelBox = new VBox(10, createCRUDButtons(tblFuel, "Fuel"), tblFuel);
-        Tab tabFuel = new Tab("Fuel", fuelBox);
-
-        tblMonthlyFees = new TableView<>(monthlyFeeList);
-        setupMonthlyFeeTable(tblMonthlyFees);
-        VBox feeBox = new VBox(10, createCRUDButtons(tblMonthlyFees, "MonthlyFee"), tblMonthlyFees);
-        Tab tabMonthlyFees = new Tab("Monthly Fees", feeBox);
-
-        tblCashAdvances = new TableView<>(cashAdvanceList);
-        setupCashAdvanceTable(tblCashAdvances);
-        VBox advBox = new VBox(10, createCRUDButtons(tblCashAdvances, "CashAdvance"), tblCashAdvances);
-        Tab tabCashAdvances = new Tab("Cash Advances", advBox);
-
-        tblOtherAdjustments = new TableView<>(otherDeductionList);
-        setupOtherDeductionTable(tblOtherAdjustments);
-        VBox adjBox = new VBox(10, createCRUDButtons(tblOtherAdjustments, "OtherDeduction"), tblOtherAdjustments);
-        Tab tabOtherAdjustments = new Tab("Other Adjustments", adjBox);
-
-        subTabs.getTabs().addAll(tabLoads, tabFuel, tabMonthlyFees, tabCashAdvances, tabOtherAdjustments);
-        setCenter(subTabs);
-    }
-
-    private HBox createCRUDButtons(TableView<?> table, String type) {
-        Button btnAdd = new Button("Add");
-        Button btnEdit = new Button("Edit");
-        Button btnDelete = new Button("Delete");
-        btnAdd.setOnAction(e -> handleAdd(type));
-        btnEdit.setOnAction(e -> handleEdit(type, table));
-        btnDelete.setOnAction(e -> handleDelete(type, table));
-        HBox hBox = new HBox(5, btnAdd, btnEdit, btnDelete);
-        hBox.setPadding(new Insets(0, 0, 5, 0));
-        return hBox;
-    }
-
-    private void handleAdd(String type) {
-        switch (type) {
-            case "Load" -> {
-                LoadDialog dialog = new LoadDialog((Stage) getScene().getWindow(), null);
-                dialog.showAndWait();
-                if (dialog.isSaved()) {
-                    loadList.add(dialog.getLoad());
-                    updateFilterAndTables();
-                }
-            }
-            case "Fuel" -> {
-                FuelTransactionDialog dialog = new FuelTransactionDialog((Stage) getScene().getWindow(), null);
-                dialog.showAndWait();
-                if (dialog.isSaved()) {
-                    fuelList.add(dialog.getFuelTransaction());
-                    updateFilterAndTables();
-                }
-            }
-            case "MonthlyFee" -> {
-                MonthlyFeeDialog dialog = new MonthlyFeeDialog((Stage) getScene().getWindow(), null);
-                dialog.showAndWait();
-                if (dialog.isSaved()) {
-                    monthlyFeeList.add(dialog.getMonthlyFee());
-                    updateFilterAndTables();
-                }
-            }
-            case "CashAdvance" -> {
-                CashAdvanceDialog dialog = new CashAdvanceDialog((Stage) getScene().getWindow(), null);
-                dialog.showAndWait();
-                if (dialog.isSaved()) {
-                    cashAdvanceList.add(dialog.getCashAdvance());
-                    updateFilterAndTables();
-                }
-            }
-            case "OtherDeduction" -> {
-                OtherDeductionDialog dialog = new OtherDeductionDialog((Stage) getScene().getWindow(), null);
-                dialog.showAndWait();
-                if (dialog.isSaved()) {
-                    otherDeductionList.add(dialog.getOtherDeduction());
-                    updateFilterAndTables();
-                }
-            }
+    private void deleteMonthlyFee(MonthlyFee fee) {
+        if (confirmDelete()) {
+            monthlyFeeDao.deleteMonthlyFee(fee.getId());
+            refreshPayroll();
         }
     }
 
-    private void handleEdit(String type, TableView<?> table) {
-        Object selected = table.getSelectionModel().getSelectedItem();
-        if (selected == null) {
-            showAlert("Please select a record to edit.");
+    private void addOrEditCashAdvance(CashAdvance ca) {
+        CashAdvanceDialog dialog = new CashAdvanceDialog(null, ca);
+        Optional<CashAdvance> result = dialog.showAndWait();
+        result.ifPresent(cad -> {
+            if (ca == null) {
+                cashAdvanceDao.addCashAdvance(cad);
+            } else {
+                cashAdvanceDao.updateCashAdvance(cad);
+            }
+            refreshPayroll();
+        });
+    }
+
+    private void deleteCashAdvance(CashAdvance ca) {
+        if (confirmDelete()) {
+            cashAdvanceDao.deleteCashAdvance(ca.getId());
+            refreshPayroll();
+        }
+    }
+
+    private void addOrEditAdjustment(OtherDeduction adj) {
+        OtherAdjustmentDialog dialog = new OtherAdjustmentDialog(adj);
+        Optional<OtherDeduction> result = dialog.showAndWait();
+        result.ifPresent(ad -> {
+            if (adj == null) {
+                otherDeductionDao.addOtherDeduction(ad);
+            } else {
+                otherDeductionDao.updateOtherDeduction(ad);
+            }
+            refreshPayroll();
+        });
+    }
+
+    private void deleteAdjustment(OtherDeduction adj) {
+        if (confirmDelete()) {
+            otherDeductionDao.deleteOtherDeduction(adj.getId());
+            refreshPayroll();
+        }
+    }
+
+    private boolean confirmDelete() {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Are you sure you want to delete this record?", ButtonType.YES, ButtonType.NO);
+        alert.setTitle("Confirm Delete");
+        alert.initModality(javafx.stage.Modality.APPLICATION_MODAL);
+        Optional<ButtonType> result = alert.showAndWait();
+        return result.isPresent() && result.get() == ButtonType.YES;
+    }
+
+    private void refreshDrivers() {
+        List<Driver> drivers = driverDao.getAllDrivers().stream()
+                .filter(Driver::isActive)
+                .collect(Collectors.toList());
+        driverList.setAll(drivers);
+    }
+
+    private void refreshPayroll() {
+        Driver driver = driverCombo.getValue();
+        LocalDate from = fromDatePicker.getValue();
+        LocalDate to = toDatePicker.getValue();
+        if (driver == null || from == null || to == null) {
+            clearSummary();
+            filteredLoads.clear();
+            filteredFuels.clear();
+            filteredFees.clear();
+            filteredAdvances.clear();
+            filteredAdjustments.clear();
             return;
         }
-        switch (type) {
-            case "Load" -> {
-                LoadDialog dialog = new LoadDialog((Stage) getScene().getWindow(), (Load) selected);
-                dialog.showAndWait();
-                if (dialog.isSaved()) {
-                    table.refresh();
-                    updateFilterAndTables();
-                }
-            }
-            case "Fuel" -> {
-                FuelTransactionDialog dialog = new FuelTransactionDialog((Stage) getScene().getWindow(), (FuelTransaction) selected);
-                dialog.showAndWait();
-                if (dialog.isSaved()) {
-                    table.refresh();
-                    updateFilterAndTables();
-                }
-            }
-            case "MonthlyFee" -> {
-                MonthlyFeeDialog dialog = new MonthlyFeeDialog((Stage) getScene().getWindow(), (MonthlyFee) selected);
-                dialog.showAndWait();
-                if (dialog.isSaved()) {
-                    table.refresh();
-                    updateFilterAndTables();
-                }
-            }
-            case "CashAdvance" -> {
-                CashAdvanceDialog dialog = new CashAdvanceDialog((Stage) getScene().getWindow(), (CashAdvance) selected);
-                dialog.showAndWait();
-                if (dialog.isSaved()) {
-                    table.refresh();
-                    updateFilterAndTables();
-                }
-            }
-            case "OtherDeduction" -> {
-                OtherDeductionDialog dialog = new OtherDeductionDialog((Stage) getScene().getWindow(), (OtherDeduction) selected);
-                dialog.showAndWait();
-                if (dialog.isSaved()) {
-                    table.refresh();
-                    updateFilterAndTables();
-                }
-            }
+
+        // Loads
+        List<Load> driverLoads = loadDao.getLoadsByDriverAndDateRange(driver.getId(), from, to);
+        filteredLoads.setAll(driverLoads);
+
+        // Fuel
+        List<FuelTransaction> driverFuels = fuelTransactionDao.getFuelTransactionsByDriverAndDateRange(driver.getId(), from, to);
+        filteredFuels.setAll(driverFuels);
+
+        // Monthly Fees
+        List<MonthlyFee> driverFees = monthlyFeeDao.getMonthlyFeesByDriverAndDateRange(driver.getId(), from, to);
+        filteredFees.setAll(driverFees);
+
+        // Cash Advances
+        List<CashAdvance> driverAdvances = cashAdvanceDao.getCashAdvancesByDriverAndDateRange(driver.getId(), from, to);
+        filteredAdvances.setAll(driverAdvances);
+
+        // Other Adjustments
+        List<OtherDeduction> driverAdjustments = otherDeductionDao.getOtherDeductionsByDriverAndDateRange(driver.getId(), from, to);
+        filteredAdjustments.setAll(driverAdjustments);
+
+        // Payroll Calculations (business logic as per your domain)
+        calculatePayroll(driver, driverLoads, driverFuels, driverFees, driverAdvances, driverAdjustments);
+    }
+
+    private void calculatePayroll(
+            Driver driver,
+            List<Load> driverLoads,
+            List<FuelTransaction> driverFuels,
+            List<MonthlyFee> driverFees,
+            List<CashAdvance> driverAdvances,
+            List<OtherDeduction> driverAdjustments
+    ) {
+        double gross = driverLoads.stream().mapToDouble(Load::getGrossAmount).sum();
+        double serviceFee = gross * (driver.getCompanyServiceFeePercent() / 100.0);
+        double grossAfterServiceFee = gross - serviceFee;
+        double fuel = driverFuels.stream().mapToDouble(f -> parseDoubleSafe(f.getAmt())).sum();
+        double grossAfterFuel = grossAfterServiceFee - fuel;
+
+        double driverShare = grossAfterFuel * (driver.getDriverPercent() / 100.0);
+        double companyShare = grossAfterFuel * (driver.getCompanyPercent() / 100.0);
+
+        double otherDeductions = driverAdjustments.stream()
+                .filter(a -> a.getReimbursed() == 0)
+                .mapToDouble(a -> a.getAmount() != null ? a.getAmount().doubleValue() : 0.0)
+                .sum();
+        double reimbursements = driverAdjustments.stream()
+                .filter(a -> a.getReimbursed() == 1)
+                .mapToDouble(a -> a.getAmount() != null ? a.getAmount().doubleValue() : 0.0)
+                .sum();
+
+        double monthlyFees = driverFees.stream()
+                .mapToDouble(f -> f.getAmount() != null ? f.getAmount().doubleValue() : 0.0)
+                .sum();
+
+        double cashAdvanceRepayment = driverAdvances.stream()
+                .mapToDouble(a -> a.getWeeklyRepayment() != null ? a.getWeeklyRepayment().doubleValue() : 0.0)
+                .sum();
+
+        double net = driverShare - otherDeductions - monthlyFees - cashAdvanceRepayment + reimbursements;
+
+        grossLabel.setText(String.format("$%,.2f", gross));
+        serviceFeeLabel.setText(String.format("$%,.2f", serviceFee));
+        grossAfterServiceFeeLabel.setText(String.format("$%,.2f", grossAfterServiceFee));
+        fuelLabel.setText(String.format("$%,.2f", fuel));
+        grossAfterFuelLabel.setText(String.format("$%,.2f", grossAfterFuel));
+        driverShareLabel.setText(String.format("$%,.2f", driverShare));
+        companyShareLabel.setText(String.format("$%,.2f", companyShare));
+        deductionsLabel.setText(String.format("$%,.2f", otherDeductions + monthlyFees + cashAdvanceRepayment));
+        netLabel.setText(String.format("$%,.2f", net));
+    }
+
+    private double parseDoubleSafe(String val) {
+        try {
+            return Double.parseDouble(val);
+        } catch (Exception e) {
+            return 0.0;
         }
     }
 
-    private void handleDelete(String type, TableView<?> table) {
-        Object selected = table.getSelectionModel().getSelectedItem();
-        if (selected == null) {
-            showAlert("Please select a record to delete.");
-            return;
-        }
-        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Are you sure you want to delete the selected record?", ButtonType.YES, ButtonType.NO);
-        confirm.showAndWait();
-        if (confirm.getResult() != ButtonType.YES) return;
-        switch (type) {
-            case "Load" -> loadList.remove(selected);
-            case "Fuel" -> fuelList.remove(selected);
-            case "MonthlyFee" -> monthlyFeeList.remove(selected);
-            case "CashAdvance" -> cashAdvanceList.remove(selected);
-            case "OtherDeduction" -> otherDeductionList.remove(selected);
-        }
-        updateFilterAndTables();
-    }
-
-    private void updateFilterAndTables() {
-        tblLoads.setItems(loadList.filtered(l -> filterMatch(l.getDeliveredDate(), getDriverById(l.getDriverId()))));
-        // For FuelTransaction, model uses String for tranDate, but UI expects LocalDate. Convert if possible.
-        tblFuel.setItems(fuelList.filtered(f -> {
-            LocalDate date = null;
-            try { date = f.getTranDate() == null ? null : LocalDate.parse(f.getTranDate()); } catch (Exception ignored) {}
-            return filterMatch(date, getDriverById(
-                    f.getDriverId() != null ? f.getDriverId() : 0));
-        }));
-        tblMonthlyFees.setItems(monthlyFeeList.filtered(m -> filterMatch(m.getDueDate(), getDriverById(m.getDriverId()))));
-        tblCashAdvances.setItems(cashAdvanceList.filtered(c -> filterMatch(c.getAdvanceDate(), getDriverById(c.getDriverId()))));
-        tblOtherAdjustments.setItems(otherDeductionList.filtered(o -> filterMatch(o.getDate(), getDriverById(o.getDriverId()))));
-    }
-
-    private boolean filterMatch(LocalDate date, Driver driver) {
-        boolean inDate = (date == null || (date.compareTo(filterStart) >= 0 && date.compareTo(filterEnd) <= 0));
-        boolean driverOk = (filterDriver == null || (driver != null && driver.equals(filterDriver)));
-        return inDate && driverOk;
-    }
-
-    private void refreshDriverList() {
-        driverList.clear();
-        // Use default constructor and setters for Driver (so you don't hit the 'no suitable constructor' error)
-        Driver d1 = new Driver();
-        d1.setId(1); d1.setName("Alice Smith"); d1.setPhone("123-456-7890"); d1.setEmail("alice@example.com");
-        d1.setActive(true); d1.setCompanyServiceFeePercent(5.0); d1.setDriverPercent(70.0);
-        d1.setCompanyPercent(30.0); d1.setFuelDiscountEligible(true); d1.setNotes("");
-        Driver d2 = new Driver();
-        d2.setId(2); d2.setName("Bob Johnson"); d2.setPhone("555-123-4567"); d2.setEmail("bob@example.com");
-        d2.setActive(true); d2.setCompanyServiceFeePercent(7.0); d2.setDriverPercent(65.0);
-        d2.setCompanyPercent(35.0); d2.setFuelDiscountEligible(false); d2.setNotes("");
-        driverList.addAll(d1, d2);
-        driverIdMap = driverList.stream().collect(Collectors.toMap(Driver::getId, d -> d));
-        cmbDriver.setItems(driverList);
-    }
-
-    private Driver getDriverById(int driverId) {
-        return driverIdMap.get(driverId);
-    }
-
-    private void setupLoadTable(TableView<Load> table) {
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        TableColumn<Load, String> colCustomer = new TableColumn<>("Customer");
-        colCustomer.setCellValueFactory(new PropertyValueFactory<>("customer"));
-        TableColumn<Load, LocalDate> colDelivered = new TableColumn<>("Delivered");
-        colDelivered.setCellValueFactory(new PropertyValueFactory<>("deliveredDate"));
-        TableColumn<Load, Double> colGross = new TableColumn<>("Gross");
-        colGross.setCellValueFactory(new PropertyValueFactory<>("grossAmount"));
-        TableColumn<Load, Integer> colDriverId = new TableColumn<>("Driver");
-        colDriverId.setCellValueFactory(new PropertyValueFactory<>("driverId"));
-        colDriverId.setCellFactory(tc -> new TableCell<>() {
-            @Override
-            protected void updateItem(Integer driverId, boolean empty) {
-                super.updateItem(driverId, empty);
-                if (empty || driverId == null) {
-                    setText("");
-                } else {
-                    Driver driver = getDriverById(driverId);
-                    setText(driver != null ? driver.getName() : String.valueOf(driverId));
-                }
-            }
-        });
-        TableColumn<Load, Double> colDriverPercent = new TableColumn<>("Driver %");
-        colDriverPercent.setCellValueFactory(new PropertyValueFactory<>("driverPercent"));
-        table.getColumns().setAll(colCustomer, colDelivered, colGross, colDriverId, colDriverPercent);
-    }
-
-    private void setupFuelTable(TableView<FuelTransaction> table) {
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        TableColumn<FuelTransaction, String> colDate = new TableColumn<>("Date");
-        colDate.setCellValueFactory(new PropertyValueFactory<>("tranDate"));
-        TableColumn<FuelTransaction, String> colVendor = new TableColumn<>("Vendor");
-        colVendor.setCellValueFactory(new PropertyValueFactory<>("vendor"));
-        TableColumn<FuelTransaction, String> colGallons = new TableColumn<>("Gallons");
-        colGallons.setCellValueFactory(new PropertyValueFactory<>("qty"));
-        TableColumn<FuelTransaction, String> colTotalCost = new TableColumn<>("Total Cost");
-        colTotalCost.setCellValueFactory(new PropertyValueFactory<>("amt"));
-        TableColumn<FuelTransaction, Integer> colDriverId = new TableColumn<>("Driver");
-        colDriverId.setCellValueFactory(new PropertyValueFactory<>("driverId"));
-        colDriverId.setCellFactory(tc -> new TableCell<>() {
-            @Override
-            protected void updateItem(Integer driverId, boolean empty) {
-                super.updateItem(driverId, empty);
-                if (empty || driverId == null) {
-                    setText("");
-                } else {
-                    Driver driver = getDriverById(driverId);
-                    setText(driver != null ? driver.getName() : String.valueOf(driverId));
-                }
-            }
-        });
-        table.getColumns().setAll(colDate, colVendor, colGallons, colTotalCost, colDriverId);
-    }
-
-    private void setupMonthlyFeeTable(TableView<MonthlyFee> table) {
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        TableColumn<MonthlyFee, Integer> colDriverId = new TableColumn<>("Driver");
-        colDriverId.setCellValueFactory(new PropertyValueFactory<>("driverId"));
-        colDriverId.setCellFactory(tc -> new TableCell<>() {
-            @Override
-            protected void updateItem(Integer driverId, boolean empty) {
-                super.updateItem(driverId, empty);
-                if (empty || driverId == null) {
-                    setText("");
-                } else {
-                    Driver driver = getDriverById(driverId);
-                    setText(driver != null ? driver.getName() : String.valueOf(driverId));
-                }
-            }
-        });
-        TableColumn<MonthlyFee, LocalDate> colDueDate = new TableColumn<>("Due Date");
-        colDueDate.setCellValueFactory(new PropertyValueFactory<>("dueDate"));
-        TableColumn<MonthlyFee, String> colType = new TableColumn<>("Fee Type");
-        colType.setCellValueFactory(new PropertyValueFactory<>("feeType"));
-        TableColumn<MonthlyFee, BigDecimal> colAmount = new TableColumn<>("Amount");
-        colAmount.setCellValueFactory(new PropertyValueFactory<>("amount"));
-        TableColumn<MonthlyFee, BigDecimal> colWeeklyFee = new TableColumn<>("Weekly Fee");
-        colWeeklyFee.setCellValueFactory(new PropertyValueFactory<>("weeklyFee"));
-        TableColumn<MonthlyFee, String> colNotes = new TableColumn<>("Notes");
-        colNotes.setCellValueFactory(new PropertyValueFactory<>("notes"));
-        table.getColumns().setAll(colDriverId, colDueDate, colType, colAmount, colWeeklyFee, colNotes);
-    }
-
-    private void setupCashAdvanceTable(TableView<CashAdvance> table) {
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        TableColumn<CashAdvance, Integer> colDriverId = new TableColumn<>("Driver");
-        colDriverId.setCellValueFactory(new PropertyValueFactory<>("driverId"));
-        colDriverId.setCellFactory(tc -> new TableCell<>() {
-            @Override
-            protected void updateItem(Integer driverId, boolean empty) {
-                super.updateItem(driverId, empty);
-                if (empty || driverId == null) {
-                    setText("");
-                } else {
-                    Driver driver = getDriverById(driverId);
-                    setText(driver != null ? driver.getName() : String.valueOf(driverId));
-                }
-            }
-        });
-        TableColumn<CashAdvance, LocalDate> colDate = new TableColumn<>("Advance Date");
-        colDate.setCellValueFactory(new PropertyValueFactory<>("advanceDate"));
-        TableColumn<CashAdvance, BigDecimal> colAmount = new TableColumn<>("Amount");
-        colAmount.setCellValueFactory(new PropertyValueFactory<>("amount"));
-        TableColumn<CashAdvance, String> colNotes = new TableColumn<>("Notes");
-        colNotes.setCellValueFactory(new PropertyValueFactory<>("notes"));
-        table.getColumns().setAll(colDriverId, colDate, colAmount, colNotes);
-    }
-
-    private void setupOtherDeductionTable(TableView<OtherDeduction> table) {
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        TableColumn<OtherDeduction, Integer> colDriverId = new TableColumn<>("Driver");
-        colDriverId.setCellValueFactory(new PropertyValueFactory<>("driverId"));
-        colDriverId.setCellFactory(tc -> new TableCell<>() {
-            @Override
-            protected void updateItem(Integer driverId, boolean empty) {
-                super.updateItem(driverId, empty);
-                if (empty || driverId == null) {
-                    setText("");
-                } else {
-                    Driver driver = getDriverById(driverId);
-                    setText(driver != null ? driver.getName() : String.valueOf(driverId));
-                }
-            }
-        });
-        TableColumn<OtherDeduction, LocalDate> colDate = new TableColumn<>("Date");
-        colDate.setCellValueFactory(new PropertyValueFactory<>("date"));
-        TableColumn<OtherDeduction, String> colType = new TableColumn<>("Type");
-        colType.setCellValueFactory(new PropertyValueFactory<>("type"));
-        TableColumn<OtherDeduction, Double> colAmount = new TableColumn<>("Amount");
-        colAmount.setCellValueFactory(new PropertyValueFactory<>("amount"));
-        TableColumn<OtherDeduction, String> colNotes = new TableColumn<>("Notes");
-        colNotes.setCellValueFactory(new PropertyValueFactory<>("notes"));
-        table.getColumns().setAll(colDriverId, colDate, colType, colAmount, colNotes);
-    }
-
-    private void showAlert(String message) {
-        Alert alert = new Alert(Alert.AlertType.WARNING, message, ButtonType.OK);
-        alert.showAndWait();
+    private void clearSummary() {
+        grossLabel.setText("$0.00");
+        serviceFeeLabel.setText("$0.00");
+        grossAfterServiceFeeLabel.setText("$0.00");
+        fuelLabel.setText("$0.00");
+        grossAfterFuelLabel.setText("$0.00");
+        driverShareLabel.setText("$0.00");
+        companyShareLabel.setText("$0.00");
+        deductionsLabel.setText("$0.00");
+        netLabel.setText("$0.00");
     }
 }
