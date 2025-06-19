@@ -58,6 +58,25 @@ public class CashAdvanceDao {
         return advances;
     }
 
+    // ADDED METHOD BELOW
+    public List<CashAdvance> getCashAdvancesByDriverAndDateRange(int driverId, LocalDate from, LocalDate to) {
+        List<CashAdvance> advances = new ArrayList<>();
+        String sql = "SELECT * FROM cash_advance WHERE driver_id = ? AND issued_date >= ? AND issued_date <= ?";
+        try (Connection conn = Database.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, driverId);
+            pstmt.setString(2, from.toString());
+            pstmt.setString(3, to.toString());
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                advances.add(toCashAdvance(rs));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return advances;
+    }
+
     public void addCashAdvance(CashAdvance ca) {
         String sql = "INSERT INTO cash_advance (driver_id, amount, issued_date, weekly_repayment, notes, status, assigned_payroll_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = Database.getConnection();

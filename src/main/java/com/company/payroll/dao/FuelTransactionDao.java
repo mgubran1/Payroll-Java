@@ -8,6 +8,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.sql.*;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -165,6 +166,25 @@ public class FuelTransactionDao {
         return list;
     }
 
+    // NEW: Fetch by driver name and date range (for PayrollTab)
+    public List<FuelTransaction> getFuelTransactionsByDriverNameAndDateRange(String driverName, LocalDate from, LocalDate to) {
+        List<FuelTransaction> list = new ArrayList<>();
+        String sql = "SELECT * FROM fuel_transactions WHERE driverName = ? AND tranDate >= ? AND tranDate <= ?";
+        try (Connection conn = DriverManager.getConnection(url);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, driverName);
+            pstmt.setString(2, from.toString());
+            pstmt.setString(3, to.toString());
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                list.add(readEntry(rs));
+            }
+        } catch (SQLException ex) {
+            logger.error("Get by driver name/date error", ex);
+        }
+        return list;
+    }
+
     public void exportToCSV(File file) throws IOException {
         List<FuelTransaction> all = getAllFuel();
         try (PrintWriter pw = new PrintWriter(file)) {
@@ -249,5 +269,24 @@ public class FuelTransactionDao {
         entry.setVendor(rs.getString(23));
         entry.setNotes(rs.getString(24));
         return entry;
+    }
+
+    // Retain the old method for backwards compatibility (if needed elsewhere)
+    public List<FuelTransaction> getFuelTransactionsByDriverAndDateRange(int driverId, LocalDate from, LocalDate to) {
+        List<FuelTransaction> list = new ArrayList<>();
+        String sql = "SELECT * FROM fuel_transactions WHERE driver_id = ? AND tranDate >= ? AND tranDate <= ?";
+        try (Connection conn = DriverManager.getConnection(url);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, driverId);
+            pstmt.setString(2, from.toString());
+            pstmt.setString(3, to.toString());
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                list.add(readEntry(rs));
+            }
+        } catch (SQLException ex) {
+            logger.error("Get by driver/date error", ex);
+        }
+        return list;
     }
 }

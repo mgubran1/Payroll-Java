@@ -4,10 +4,54 @@ import com.company.payroll.Database;
 import com.company.payroll.model.MonthlyFee;
 
 import java.sql.*;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
 public class MonthlyFeeDao {
+
+    public MonthlyFeeDao() {
+        createTableIfNotExists();
+        ensureColumnExists("end_date", "DATE");
+    }
+
+    private void createTableIfNotExists() {
+        String sql = "CREATE TABLE IF NOT EXISTS monthly_fees (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "driver_id INTEGER," +
+                "fee_type TEXT," +
+                "amount REAL," +
+                "due_date DATE," +
+                "end_date DATE," +
+                "weekly_fee REAL," +
+                "notes TEXT," +
+                "created_at TIMESTAMP" +
+                ")";
+        try (Connection conn = Database.getConnection();
+             Statement stmt = conn.createStatement()) {
+            stmt.execute(sql);
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    // Ensures a column exists (e.g., after initial create without all columns)
+    private void ensureColumnExists(String columnName, String columnType) {
+        try (Connection conn = Database.getConnection();
+             Statement stmt = conn.createStatement()) {
+            stmt.executeQuery("SELECT " + columnName + " FROM monthly_fees LIMIT 1");
+        } catch (SQLException e) {
+            if (e.getMessage().contains("no such column")) {
+                try (Connection conn = Database.getConnection();
+                     Statement stmt = conn.createStatement()) {
+                    stmt.execute("ALTER TABLE monthly_fees ADD COLUMN " + columnName + " " + columnType);
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
+                }
+            }
+        }
+    }
+
     public List<MonthlyFee> getAllMonthlyFees() {
         List<MonthlyFee> fees = new ArrayList<>();
         String sql = "SELECT * FROM monthly_fees";
@@ -39,17 +83,37 @@ public class MonthlyFeeDao {
         return fees;
     }
 
+    public List<MonthlyFee> getActiveMonthlyFeesForPeriod(int driverId, LocalDate periodStart, LocalDate periodEnd) {
+        List<MonthlyFee> fees = new ArrayList<>();
+        String sql = "SELECT * FROM monthly_fees WHERE driver_id = ? AND due_date <= ? " +
+                     "AND (end_date IS NULL OR end_date >= ?)";
+        try (Connection conn = Database.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, driverId);
+            pstmt.setString(2, periodEnd.toString());
+            pstmt.setString(3, periodStart.toString());
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                fees.add(toMonthlyFee(rs));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return fees;
+    }
+
     public void addMonthlyFee(MonthlyFee mf) {
-        String sql = "INSERT INTO monthly_fees (driver_id, fee_type, amount, due_date, weekly_fee, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO monthly_fees (driver_id, fee_type, amount, due_date, end_date, weekly_fee, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = Database.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             pstmt.setInt(1, mf.getDriverId());
             pstmt.setString(2, mf.getFeeType());
             pstmt.setBigDecimal(3, mf.getAmount());
             pstmt.setDate(4, mf.getDueDate() != null ? Date.valueOf(mf.getDueDate()) : null);
-            pstmt.setBigDecimal(5, mf.getWeeklyFee());
-            pstmt.setString(6, mf.getNotes());
-            pstmt.setTimestamp(7, mf.getCreatedAt() == null ? new Timestamp(System.currentTimeMillis()) : Timestamp.valueOf(mf.getCreatedAt()));
+            pstmt.setDate(5, mf.getEndDate() != null ? Date.valueOf(mf.getEndDate()) : null);
+            pstmt.setBigDecimal(6, mf.getWeeklyFee());
+            pstmt.setString(7, mf.getNotes());
+            pstmt.setTimestamp(8, mf.getCreatedAt() == null ? new Timestamp(System.currentTimeMillis()) : Timestamp.valueOf(mf.getCreatedAt()));
             pstmt.executeUpdate();
             try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
                 if (generatedKeys.next()) {
@@ -62,17 +126,18 @@ public class MonthlyFeeDao {
     }
 
     public void updateMonthlyFee(MonthlyFee mf) {
-        String sql = "UPDATE monthly_fees SET driver_id=?, fee_type=?, amount=?, due_date=?, weekly_fee=?, notes=?, created_at=? WHERE id=?";
+        String sql = "UPDATE monthly_fees SET driver_id=?, fee_type=?, amount=?, due_date=?, end_date=?, weekly_fee=?, notes=?, created_at=? WHERE id=?";
         try (Connection conn = Database.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, mf.getDriverId());
             pstmt.setString(2, mf.getFeeType());
             pstmt.setBigDecimal(3, mf.getAmount());
             pstmt.setDate(4, mf.getDueDate() != null ? Date.valueOf(mf.getDueDate()) : null);
-            pstmt.setBigDecimal(5, mf.getWeeklyFee());
-            pstmt.setString(6, mf.getNotes());
-            pstmt.setTimestamp(7, mf.getCreatedAt() == null ? new Timestamp(System.currentTimeMillis()) : Timestamp.valueOf(mf.getCreatedAt()));
-            pstmt.setInt(8, mf.getId());
+            pstmt.setDate(5, mf.getEndDate() != null ? Date.valueOf(mf.getEndDate()) : null);
+            pstmt.setBigDecimal(6, mf.getWeeklyFee());
+            pstmt.setString(7, mf.getNotes());
+            pstmt.setTimestamp(8, mf.getCreatedAt() == null ? new Timestamp(System.currentTimeMillis()) : Timestamp.valueOf(mf.getCreatedAt()));
+            pstmt.setInt(9, mf.getId());
             pstmt.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
@@ -96,7 +161,8 @@ public class MonthlyFeeDao {
         mf.setDriverId(rs.getInt("driver_id"));
         mf.setFeeType(rs.getString("fee_type"));
         mf.setAmount(rs.getBigDecimal("amount"));
-        mf.setDueDate(rs.getDate("due_date").toLocalDate());
+        mf.setDueDate(rs.getDate("due_date") != null ? rs.getDate("due_date").toLocalDate() : null);
+        mf.setEndDate(rs.getDate("end_date") != null ? rs.getDate("end_date").toLocalDate() : null);
         mf.setWeeklyFee(rs.getBigDecimal("weekly_fee"));
         mf.setNotes(rs.getString("notes"));
         Timestamp ts = rs.getTimestamp("created_at");

@@ -4,30 +4,24 @@ import com.company.payroll.dao.*;
 import com.company.payroll.model.*;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.SimpleStringProperty;
-import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
-import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.*;
+import javafx.stage.Stage;
 import javafx.util.StringConverter;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * Professional Payroll Tab implementation for Semi-Truck Payroll System.
- * - Dynamically fetches drivers from Employee/Driver DB (no hardcoded values)
- * - Fetches and displays all payroll components for the selected driver and period
- * - Fully interactive; reflects latest data and supports CRUD for adjustments
- * - All calculations follow the provided domain logic and ensure transparency
+ * PayrollTab uses the shared DriverRepository for its driver list,
+ * so changes in the Employees tab are instantly reflected here.
  */
-public class PayrollTab extends BorderPane {
+public class PayrollTab extends BorderPane implements DataRefreshListener {
 
     private final DriverDao driverDao = new DriverDao();
     private final LoadDao loadDao = new LoadDao();
@@ -36,17 +30,18 @@ public class PayrollTab extends BorderPane {
     private final CashAdvanceDao cashAdvanceDao = new CashAdvanceDao();
     private final OtherDeductionDao otherDeductionDao = new OtherDeductionDao();
 
-    private final ObservableList<Driver> driverList = FXCollections.observableArrayList();
-    private final ObservableList<Load> filteredLoads = FXCollections.observableArrayList();
-    private final ObservableList<FuelTransaction> filteredFuels = FXCollections.observableArrayList();
-    private final ObservableList<MonthlyFee> filteredFees = FXCollections.observableArrayList();
-    private final ObservableList<CashAdvance> filteredAdvances = FXCollections.observableArrayList();
-    private final ObservableList<OtherDeduction> filteredAdjustments = FXCollections.observableArrayList();
+    // Get the shared driver list from DriverRepository
+    private final ObservableList<Driver> driverList = DriverRepository.getInstance().getDriverList();
+    private final ObservableList<Load> filteredLoads = javafx.collections.FXCollections.observableArrayList();
+    private final ObservableList<FuelTransaction> filteredFuels = javafx.collections.FXCollections.observableArrayList();
+    private final ObservableList<MonthlyFee> filteredFees = javafx.collections.FXCollections.observableArrayList();
+    private final ObservableList<CashAdvance> filteredAdvances = javafx.collections.FXCollections.observableArrayList();
+    private final ObservableList<OtherDeduction> filteredAdjustments = javafx.collections.FXCollections.observableArrayList();
 
     private ComboBox<Driver> driverCombo;
     private DatePicker fromDatePicker, toDatePicker;
     private Button applyRangeBtn;
-    private Label grossLabel, serviceFeeLabel, grossAfterServiceFeeLabel, fuelLabel,
+    private Label grossLabel, serviceFeeLabel, grossAfterServiceFeeLabel, fuelLabel, feesLabel,
             grossAfterFuelLabel, driverShareLabel, companyShareLabel, deductionsLabel, netLabel;
 
     private TableView<Load> loadsTable;
@@ -57,12 +52,15 @@ public class PayrollTab extends BorderPane {
 
     public PayrollTab() {
         buildUI();
-        refreshDrivers();
+        // No need to manually refresh: driverList is shared and auto-updates from repository
+        DriverRepository.getInstance().refreshDriversFromDatabase();
+        selectFirstDriverIfNeeded();
         refreshPayroll();
+        // Listen for changes to the driver list to select first driver if needed
+        driverList.addListener((javafx.collections.ListChangeListener<Driver>) change -> selectFirstDriverIfNeeded());
     }
 
     private void buildUI() {
-        // Top filter controls
         driverCombo = new ComboBox<>(driverList);
         driverCombo.setPromptText("Select Driver");
         driverCombo.setMinWidth(220);
@@ -86,11 +84,11 @@ public class PayrollTab extends BorderPane {
         filterRow.setAlignment(Pos.CENTER_LEFT);
         filterRow.setPadding(new Insets(10));
 
-        // Summary grid
         grossLabel = createSummaryLabel();
         serviceFeeLabel = createSummaryLabel();
         grossAfterServiceFeeLabel = createSummaryLabel();
         fuelLabel = createSummaryLabel();
+        feesLabel = createSummaryLabel();
         grossAfterFuelLabel = createSummaryLabel();
         driverShareLabel = createSummaryLabel();
         companyShareLabel = createSummaryLabel();
@@ -106,17 +104,17 @@ public class PayrollTab extends BorderPane {
                 new Label("Gross:"), grossLabel,
                 new Label("Service Fee:"), serviceFeeLabel,
                 new Label("Gross after Service Fee:"), grossAfterServiceFeeLabel,
-                new Label("Fuel:"), fuelLabel
+                new Label("Fuel:"), fuelLabel,
+                new Label("Fees:"), feesLabel
         );
         summaryGrid.addRow(1,
-                new Label("Gross after Fuel:"), grossAfterFuelLabel,
+                new Label("Gross after Fuel & Fees:"), grossAfterFuelLabel,
                 new Label("Driver Share:"), driverShareLabel,
                 new Label("Company Share:"), companyShareLabel,
                 new Label("Other Deductions:"), deductionsLabel,
                 new Label("Net:"), netLabel
         );
 
-        // Details tabs
         loadsTable = createLoadsTable();
         fuelTable = createFuelTable();
         feesTable = createFeesTable();
@@ -188,7 +186,6 @@ public class PayrollTab extends BorderPane {
         return box;
     }
 
-    // Table creation
     private TableView<Load> createLoadsTable() {
         TableView<Load> table = new TableView<>(filteredLoads);
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
@@ -228,7 +225,7 @@ public class PayrollTab extends BorderPane {
         dateCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getTranDate()));
 
         TableColumn<FuelTransaction, String> vendorCol = new TableColumn<>("Vendor");
-        vendorCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getVendor()));
+        vendorCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getLocationName()));
 
         TableColumn<FuelTransaction, String> gallonsCol = new TableColumn<>("Gallons");
         gallonsCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getQty()));
@@ -256,6 +253,11 @@ public class PayrollTab extends BorderPane {
             cd.getValue().getDueDate() != null ? cd.getValue().getDueDate().toString() : ""
         ));
 
+        TableColumn<MonthlyFee, String> endDateCol = new TableColumn<>("End Date");
+        endDateCol.setCellValueFactory(cd -> new SimpleStringProperty(
+            cd.getValue().getEndDate() != null ? cd.getValue().getEndDate().toString() : ""
+        ));
+
         TableColumn<MonthlyFee, String> amountCol = new TableColumn<>("Amount");
         amountCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getAmount() != null ? cd.getValue().getAmount().toString() : "0.00"));
 
@@ -265,7 +267,7 @@ public class PayrollTab extends BorderPane {
         TableColumn<MonthlyFee, String> notesCol = new TableColumn<>("Notes");
         notesCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getNotes()));
 
-        table.getColumns().addAll(idCol, typeCol, dueDateCol, amountCol, weeklyCol, notesCol);
+        table.getColumns().addAll(idCol, typeCol, dueDateCol, endDateCol, amountCol, weeklyCol, notesCol);
         table.setPlaceholder(new Label("No monthly fees for this period."));
         return table;
     }
@@ -312,7 +314,7 @@ public class PayrollTab extends BorderPane {
         reasonCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getReason()));
 
         TableColumn<OtherDeduction, String> amountCol = new TableColumn<>("Amount");
-        amountCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getAmount() != null ? cd.getValue().getAmount().toString() : "0.00"));
+        amountCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getAmount() != 0.0 ? String.valueOf(cd.getValue().getAmount()) : "0.00"));
 
         TableColumn<OtherDeduction, String> typeCol = new TableColumn<>("Type");
         typeCol.setCellValueFactory(cd -> new SimpleStringProperty(cd.getValue().getReimbursed() == 1 ? "Reimbursement" : "Deduction"));
@@ -323,16 +325,10 @@ public class PayrollTab extends BorderPane {
     }
 
     private void addOrEditMonthlyFee(MonthlyFee fee) {
-        MonthlyFeeDialog dialog = new MonthlyFeeDialog(fee);
-        Optional<MonthlyFee> result = dialog.showAndWait();
-        result.ifPresent(mf -> {
-            if (fee == null) {
-                monthlyFeeDao.addMonthlyFee(mf);
-            } else {
-                monthlyFeeDao.updateMonthlyFee(mf);
-            }
-            refreshPayroll();
-        });
+        Stage stage = (Stage) this.getScene().getWindow();
+        MonthlyFeeDialog dialog = new MonthlyFeeDialog(stage, fee);
+        dialog.showAndWait();
+        refreshPayroll();
     }
 
     private void deleteMonthlyFee(MonthlyFee fee) {
@@ -343,16 +339,10 @@ public class PayrollTab extends BorderPane {
     }
 
     private void addOrEditCashAdvance(CashAdvance ca) {
-        CashAdvanceDialog dialog = new CashAdvanceDialog(null, ca);
-        Optional<CashAdvance> result = dialog.showAndWait();
-        result.ifPresent(cad -> {
-            if (ca == null) {
-                cashAdvanceDao.addCashAdvance(cad);
-            } else {
-                cashAdvanceDao.updateCashAdvance(cad);
-            }
-            refreshPayroll();
-        });
+        Stage stage = (Stage) this.getScene().getWindow();
+        CashAdvanceDialog dialog = new CashAdvanceDialog(stage, ca);
+        dialog.showAndWait();
+        refreshPayroll();
     }
 
     private void deleteCashAdvance(CashAdvance ca) {
@@ -363,21 +353,15 @@ public class PayrollTab extends BorderPane {
     }
 
     private void addOrEditAdjustment(OtherDeduction adj) {
-        OtherAdjustmentDialog dialog = new OtherAdjustmentDialog(adj);
-        Optional<OtherDeduction> result = dialog.showAndWait();
-        result.ifPresent(ad -> {
-            if (adj == null) {
-                otherDeductionDao.addOtherDeduction(ad);
-            } else {
-                otherDeductionDao.updateOtherDeduction(ad);
-            }
-            refreshPayroll();
-        });
+        Stage stage = (Stage) this.getScene().getWindow();
+        OtherAdjustmentDialog dialog = new OtherAdjustmentDialog(stage);
+        dialog.showAndWait();
+        refreshPayroll();
     }
 
     private void deleteAdjustment(OtherDeduction adj) {
         if (confirmDelete()) {
-            otherDeductionDao.deleteOtherDeduction(adj.getId());
+            otherDeductionDao.deleteDeduction(adj.getId());
             refreshPayroll();
         }
     }
@@ -390,11 +374,10 @@ public class PayrollTab extends BorderPane {
         return result.isPresent() && result.get() == ButtonType.YES;
     }
 
-    private void refreshDrivers() {
-        List<Driver> drivers = driverDao.getAllDrivers().stream()
-                .filter(Driver::isActive)
-                .collect(Collectors.toList());
-        driverList.setAll(drivers);
+    private void selectFirstDriverIfNeeded() {
+        if (!driverList.isEmpty() && (driverCombo.getValue() == null || !driverList.contains(driverCombo.getValue()))) {
+            driverCombo.setValue(driverList.get(0));
+        }
     }
 
     private void refreshPayroll() {
@@ -411,27 +394,21 @@ public class PayrollTab extends BorderPane {
             return;
         }
 
-        // Loads
         List<Load> driverLoads = loadDao.getLoadsByDriverAndDateRange(driver.getId(), from, to);
         filteredLoads.setAll(driverLoads);
 
-        // Fuel
-        List<FuelTransaction> driverFuels = fuelTransactionDao.getFuelTransactionsByDriverAndDateRange(driver.getId(), from, to);
+        List<FuelTransaction> driverFuels = fuelTransactionDao.getFuelTransactionsByDriverNameAndDateRange(driver.getName(), from, to);
         filteredFuels.setAll(driverFuels);
 
-        // Monthly Fees
-        List<MonthlyFee> driverFees = monthlyFeeDao.getMonthlyFeesByDriverAndDateRange(driver.getId(), from, to);
+        List<MonthlyFee> driverFees = monthlyFeeDao.getActiveMonthlyFeesForPeriod(driver.getId(), from, to);
         filteredFees.setAll(driverFees);
 
-        // Cash Advances
         List<CashAdvance> driverAdvances = cashAdvanceDao.getCashAdvancesByDriverAndDateRange(driver.getId(), from, to);
         filteredAdvances.setAll(driverAdvances);
 
-        // Other Adjustments
         List<OtherDeduction> driverAdjustments = otherDeductionDao.getOtherDeductionsByDriverAndDateRange(driver.getId(), from, to);
         filteredAdjustments.setAll(driverAdjustments);
 
-        // Payroll Calculations (business logic as per your domain)
         calculatePayroll(driver, driverLoads, driverFuels, driverFees, driverAdvances, driverAdjustments);
     }
 
@@ -447,38 +424,42 @@ public class PayrollTab extends BorderPane {
         double serviceFee = gross * (driver.getCompanyServiceFeePercent() / 100.0);
         double grossAfterServiceFee = gross - serviceFee;
         double fuel = driverFuels.stream().mapToDouble(f -> parseDoubleSafe(f.getAmt())).sum();
-        double grossAfterFuel = grossAfterServiceFee - fuel;
+
+        double fees = driverFuels.stream().mapToDouble(f -> parseDoubleSafe(f.getFees())).sum();
+
+        double monthlyFees = driverFees.stream()
+            .mapToDouble(fee -> fee.getWeeklyFee() != null ? fee.getWeeklyFee().doubleValue() : 0.0)
+            .sum();
+
+        double grossAfterFuel = grossAfterServiceFee - fuel - fees - monthlyFees;
 
         double driverShare = grossAfterFuel * (driver.getDriverPercent() / 100.0);
         double companyShare = grossAfterFuel * (driver.getCompanyPercent() / 100.0);
 
         double otherDeductions = driverAdjustments.stream()
                 .filter(a -> a.getReimbursed() == 0)
-                .mapToDouble(a -> a.getAmount() != null ? a.getAmount().doubleValue() : 0.0)
+                .mapToDouble(OtherDeduction::getAmount)
                 .sum();
         double reimbursements = driverAdjustments.stream()
                 .filter(a -> a.getReimbursed() == 1)
-                .mapToDouble(a -> a.getAmount() != null ? a.getAmount().doubleValue() : 0.0)
-                .sum();
-
-        double monthlyFees = driverFees.stream()
-                .mapToDouble(f -> f.getAmount() != null ? f.getAmount().doubleValue() : 0.0)
+                .mapToDouble(OtherDeduction::getAmount)
                 .sum();
 
         double cashAdvanceRepayment = driverAdvances.stream()
                 .mapToDouble(a -> a.getWeeklyRepayment() != null ? a.getWeeklyRepayment().doubleValue() : 0.0)
                 .sum();
 
-        double net = driverShare - otherDeductions - monthlyFees - cashAdvanceRepayment + reimbursements;
+        double net = driverShare - otherDeductions - cashAdvanceRepayment + reimbursements;
 
         grossLabel.setText(String.format("$%,.2f", gross));
         serviceFeeLabel.setText(String.format("$%,.2f", serviceFee));
         grossAfterServiceFeeLabel.setText(String.format("$%,.2f", grossAfterServiceFee));
         fuelLabel.setText(String.format("$%,.2f", fuel));
+        feesLabel.setText(String.format("$%,.2f", fees + monthlyFees));
         grossAfterFuelLabel.setText(String.format("$%,.2f", grossAfterFuel));
         driverShareLabel.setText(String.format("$%,.2f", driverShare));
         companyShareLabel.setText(String.format("$%,.2f", companyShare));
-        deductionsLabel.setText(String.format("$%,.2f", otherDeductions + monthlyFees + cashAdvanceRepayment));
+        deductionsLabel.setText(String.format("$%,.2f", otherDeductions + cashAdvanceRepayment));
         netLabel.setText(String.format("$%,.2f", net));
     }
 
@@ -495,10 +476,23 @@ public class PayrollTab extends BorderPane {
         serviceFeeLabel.setText("$0.00");
         grossAfterServiceFeeLabel.setText("$0.00");
         fuelLabel.setText("$0.00");
+        feesLabel.setText("$0.00");
         grossAfterFuelLabel.setText("$0.00");
         driverShareLabel.setText("$0.00");
         companyShareLabel.setText("$0.00");
         deductionsLabel.setText("$0.00");
         netLabel.setText("$0.00");
+    }
+
+    // --- DataRefreshListener implementation ---
+    @Override
+    public void refreshDrivers() {
+        DriverRepository.getInstance().refreshDriversFromDatabase();
+        // Payroll will refresh due to driverList listener
+    }
+
+    @Override
+    public void refreshLoads() {
+        refreshPayroll();
     }
 }

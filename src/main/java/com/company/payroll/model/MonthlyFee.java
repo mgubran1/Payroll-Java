@@ -10,18 +10,21 @@ public class MonthlyFee {
     private String feeType;
     private BigDecimal amount;
     private LocalDate dueDate;
+    private LocalDate endDate; // <-- Added for support of end dates
     private BigDecimal weeklyFee;
     private String notes;
     private LocalDateTime createdAt;
 
     public MonthlyFee() {}
 
-    public MonthlyFee(int id, int driverId, String feeType, BigDecimal amount, LocalDate dueDate, BigDecimal weeklyFee, String notes, LocalDateTime createdAt) {
+    // Constructor with endDate included for convenience
+    public MonthlyFee(int id, int driverId, String feeType, BigDecimal amount, LocalDate dueDate, LocalDate endDate, BigDecimal weeklyFee, String notes, LocalDateTime createdAt) {
         this.id = id;
         this.driverId = driverId;
         this.feeType = feeType;
         this.amount = amount;
         this.dueDate = dueDate;
+        this.endDate = endDate;
         this.weeklyFee = weeklyFee;
         this.notes = notes;
         this.createdAt = createdAt;
@@ -41,6 +44,9 @@ public class MonthlyFee {
 
     public LocalDate getDueDate() { return dueDate; }
     public void setDueDate(LocalDate dueDate) { this.dueDate = dueDate; }
+
+    public LocalDate getEndDate() { return endDate; }
+    public void setEndDate(LocalDate endDate) { this.endDate = endDate; }
 
     public BigDecimal getWeeklyFee() { return weeklyFee; }
     public void setWeeklyFee(BigDecimal weeklyFee) { this.weeklyFee = weeklyFee; }

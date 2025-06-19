@@ -26,7 +26,7 @@ public class LoadDao {
                 "gross_amount NUMERIC(10,2) NOT NULL," +
                 "driver_percent REAL," +
                 "description TEXT," +
-                "paid INTEGER NOT NULL DEFAULT 0," +   // <-- Only ONE line!
+                "paid INTEGER NOT NULL DEFAULT 0," +
                 "FOREIGN KEY(driver_id) REFERENCES drivers(id)" +
                 ")";
         try (Connection conn = Database.getConnection();
@@ -161,5 +161,25 @@ public class LoadDao {
         load.setDescription(rs.getString("description"));
         load.setPaid(rs.getInt("paid") == 1);
         return load;
+    }
+
+    // ----------- ADDED METHOD -----------
+    public List<Load> getLoadsByDriverAndDateRange(int driverId, LocalDate from, LocalDate to) {
+        List<Load> loads = new ArrayList<>();
+        String sql = "SELECT * FROM loads WHERE driver_id = ? AND delivered_date >= ? AND delivered_date <= ?";
+        try (Connection conn = Database.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, driverId);
+            pstmt.setString(2, from.toString());
+            pstmt.setString(3, to.toString());
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    loads.add(toLoad(rs));
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return loads;
     }
 }

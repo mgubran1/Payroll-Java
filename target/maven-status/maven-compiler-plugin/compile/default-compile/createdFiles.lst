@@ -4,7 +4,6 @@ com\company\payroll\dao\BusinessExpenseDao.class
 com\company\payroll\model\MonthlyFee.class
 com\company\payroll\ui\LoadsTab.class
 com\company\payroll\ui\OtherDeductionDialog.class
-com\company\payroll\ui\PayrollTab$4.class
 com\company\payroll\dao\AuditLogDao.class
 com\company\payroll\model\FuelTransaction.class
 com\company\payroll\model\MaintenanceRecord.class
@@ -21,14 +20,13 @@ com\company\payroll\dao\PayrollLineDao.class
 com\company\payroll\model\CashAdvance.class
 com\company\payroll\ui\FuelTransactionEditDialog.class
 com\company\payroll\dao\PayrollDao.class
-com\company\payroll\ui\PayrollTab$5.class
 com\company\payroll\ui\DriverIncomeTab.class
 com\company\payroll\ui\EmployeeTab$1.class
 com\company\payroll\ui\LoadsTestApp.class
 com\company\payroll\dao\CashAdvanceDao.class
 com\company\payroll\dao\FuelTransactionDao.class
-com\company\payroll\ui\PayrollTab$2.class
 com\company\payroll\dao\TrailerDao.class
+com\company\payroll\ui\DriverRepository.class
 com\company\payroll\ui\MissingActionsTab.class
 com\company\payroll\ui\LoadsTab$3.class
 com\company\payroll\dao\OtherDeductionDao.class
@@ -41,7 +39,6 @@ com\company\payroll\model\FeeType.class
 com\company\payroll\ui\OtherAdjustmentDialog.class
 com\company\payroll\model\AdjustmentType.class
 com\company\payroll\model\BusinessExpense.class
-com\company\payroll\ui\PayrollTab$6.class
 com\company\payroll\model\Load.class
 com\company\payroll\dao\DriverDao.class
 com\company\payroll\dao\EmployeeDao.class
@@ -54,7 +51,6 @@ com\company\payroll\ui\PayrollTab$1.class
 com\company\payroll\ui\LoadDialog.class
 com\company\payroll\model\Driver.class
 com\company\payroll\model\PayrollLine.class
-com\company\payroll\ui\PayrollTab$3.class
 com\company\payroll\ui\PayrollTab.class
 com\company\payroll\dao\CompanyIncomeDao.class
 com\company\payroll\ui\FuelImportTab$1.class

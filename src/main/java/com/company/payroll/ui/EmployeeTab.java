@@ -71,9 +71,25 @@ public class EmployeeTab extends BorderPane implements DataRefreshListener {
         medExpiryCol.setCellValueFactory(new PropertyValueFactory<>("medicalExpiry"));
         medExpiryCol.setCellFactory(col -> getExpiryCell());
 
+        // --- ADD THIS COLUMN FOR ACTIVE ---
+        TableColumn<Driver, Boolean> activeCol = new TableColumn<>("Active");
+        activeCol.setCellValueFactory(new PropertyValueFactory<>("active"));
+        // Optionally, display as "Yes"/"No":
+        /*
+        activeCol.setCellFactory(tc -> new TableCell<Driver, Boolean>() {
+            @Override
+            protected void updateItem(Boolean active, boolean empty) {
+                super.updateItem(active, empty);
+                setText(empty ? "" : (active != null && active ? "Yes" : "No"));
+            }
+        });
+        */
+        // --- END ADD ---
+
         table.getColumns().addAll(
                 idCol, nameCol, truckCol, driverPercentCol, fuelDiscountCol, companyPercentCol, serviceFeeCol, driveTypeCol, phoneCol,
-                licenseNumberCol, driversLLCCol, cdlExpiryCol, medExpiryCol
+                licenseNumberCol, driversLLCCol, cdlExpiryCol, medExpiryCol,
+                activeCol // <-- ADD COLUMN TO TABLE
         );
 
         Button addBtn = new Button("Add");
@@ -156,6 +172,11 @@ public class EmployeeTab extends BorderPane implements DataRefreshListener {
         TextField licenseNumberField = new TextField(driver == null ? "" : driver.getLicenseNumber());
         TextField driversLLCField = new TextField(driver == null ? "" : driver.getDriversLLC());
 
+        // --- ADD THIS FOR ACTIVE FIELD ---
+        CheckBox activeCheckBox = new CheckBox("Active");
+        activeCheckBox.setSelected(driver != null && driver.isActive());
+        // --- END ADD ---
+
         // Color coding for DatePickers
         cdlExpiryPicker.valueProperty().addListener((obs, ov, nv) -> updateDateColor(cdlExpiryPicker));
         medicalExpiryPicker.valueProperty().addListener((obs, ov, nv) -> updateDateColor(medicalExpiryPicker));
@@ -188,6 +209,9 @@ public class EmployeeTab extends BorderPane implements DataRefreshListener {
                     d.setMedicalExpiry(medicalExpiryPicker.getValue());
                     d.setLicenseNumber(licenseNumberField.getText());
                     d.setDriversLLC(driversLLCField.getText());
+                    // --- ADD THIS ---
+                    d.setActive(activeCheckBox.isSelected());
+                    // --- END ADD ---
                     driverDao.addDriver(d);
                 } else {
                     driver.setName(nameField.getText());
@@ -202,6 +226,9 @@ public class EmployeeTab extends BorderPane implements DataRefreshListener {
                     driver.setMedicalExpiry(medicalExpiryPicker.getValue());
                     driver.setLicenseNumber(licenseNumberField.getText());
                     driver.setDriversLLC(driversLLCField.getText());
+                    // --- ADD THIS ---
+                    driver.setActive(activeCheckBox.isSelected());
+                    // --- END ADD ---
                     driverDao.updateDriver(driver);
                 }
                 refresh();
@@ -226,6 +253,9 @@ public class EmployeeTab extends BorderPane implements DataRefreshListener {
                 new Label("Medical Expiry:"), medicalExpiryPicker,
                 new Label("License Number:"), licenseNumberField,
                 new Label("Drivers LLC:"), driversLLCField,
+                // --- ADD THIS ---
+                activeCheckBox,
+                // --- END ADD ---
                 saveBtn
         );
         vbox.setPadding(new Insets(20));

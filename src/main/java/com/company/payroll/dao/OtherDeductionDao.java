@@ -138,4 +138,23 @@ public class OtherDeductionDao {
         d.setNotes(rs.getString("notes"));
         return d;
     }
+
+    // ----------- ADDED METHOD -----------
+    public List<OtherDeduction> getOtherDeductionsByDriverAndDateRange(int driverId, LocalDate from, LocalDate to) {
+        List<OtherDeduction> list = new ArrayList<>();
+        String sql = "SELECT * FROM other_deductions WHERE driverId = ? AND date >= ? AND date <= ?";
+        try (Connection conn = DriverManager.getConnection(url);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, driverId);
+            pstmt.setString(2, from.toString());
+            pstmt.setString(3, to.toString());
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                list.add(readEntry(rs));
+            }
+        } catch (SQLException ex) {
+            logger.error("Get by driver/date error", ex);
+        }
+        return list;
+    }
 }
